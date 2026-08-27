@@ -58,47 +58,47 @@
   "calibration": {
     "1.0": {
       "n_observed": 42,
-      "mean_pairwise_corr": 0.3757063563197985,
-      "n_eff": 2.560357282049964,
-      "tau": 0.06096088766785629,
-      "detect_llr": 45.562612595121664,
+      "mean_pairwise_corr": 0.29239690298438414,
+      "n_eff": 3.2336862589580297,
+      "tau": 0.07699252997519118,
+      "detect_llr": 42.5638498837417,
       "target_window_fpr": 0.01,
-      "null_llr_median": 4.270703676837888,
+      "null_llr_median": 4.246930142740986,
       "held_out_calibration": true
     },
     "0.75": {
       "n_observed": 32,
-      "mean_pairwise_corr": 0.4065958186322253,
-      "n_eff": 2.35216800888412,
-      "tau": 0.07350525027762875,
-      "detect_llr": 32.119525394492335,
+      "mean_pairwise_corr": 0.3256004655943564,
+      "n_eff": 2.884542291607326,
+      "tau": 0.09014194661272894,
+      "detect_llr": 31.30364205825687,
       "target_window_fpr": 0.01,
-      "null_llr_median": 4.378514794908959,
+      "null_llr_median": 4.124283528731505,
       "held_out_calibration": true
     },
     "0.5": {
       "n_observed": 21,
-      "mean_pairwise_corr": 0.3760033583827625,
-      "n_eff": 2.464769301317524,
-      "tau": 0.11736996672940589,
-      "detect_llr": 42.892326734815505,
+      "mean_pairwise_corr": 0.288404380661817,
+      "n_eff": 3.102796713052344,
+      "tau": 0.147752224431064,
+      "detect_llr": 39.99294167411538,
       "target_window_fpr": 0.01,
-      "null_llr_median": 4.378521718592323,
+      "null_llr_median": 4.053859270823491,
       "held_out_calibration": true
     },
     "0.25": {
       "n_observed": 10,
-      "mean_pairwise_corr": 0.3684244909545415,
-      "n_eff": 2.317056557062452,
-      "tau": 0.2317056557062452,
-      "detect_llr": 27.136223649542885,
+      "mean_pairwise_corr": 0.2929516085500949,
+      "n_eff": 2.7498481226942766,
+      "tau": 0.27498481226942767,
+      "detect_llr": 23.87887940963418,
       "target_window_fpr": 0.01,
-      "null_llr_median": 2.4575633784244117,
+      "null_llr_median": 2.2742765684341206,
       "held_out_calibration": true
     }
   },
   "nominal_rate_vph": 49.95731840045454,
   "n_localization_rows": 1376,
   "n_episodes_test": 110,
-  "runtime_s": 1778.2
+  "runtime_s": 1755.8
 }

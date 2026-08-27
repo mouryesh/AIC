@@ -64,9 +64,9 @@ everything downstream of it is meaningless.
 
 ---
 
-## 3. Two things that were wrong in the first version
+## 3. Three things that were wrong in the first version
 
-Both were found by measurement, and both changed the design.
+All were found by measurement, and all three changed the design.
 
 ### 3.1 Blocking and starving are not symmetric
 
@@ -108,6 +108,32 @@ now pins this down.
 
 ---
 
+### 3.3 Supply starvation is not uniform
+
+`LINE_SUPPLY` was first modelled as *uniform* starvation across the line. Real
+supply starvation decays from the head as buffers absorb it, so a decaying
+station hypothesis always fitted it better — and an inbound material delay was
+attributed to station S02 with 85% posterior mass, while S01 sat **starved at
+179% of takt**.
+
+That is the one thing that cannot happen if S02 is the constraint: if S02 were
+slow, S01 would be *blocked*, holding work it could not hand over.
+
+Two changes followed. The head-shortfall hypothesis now uses the same decay
+profile, so the comparison is fair; and the recommendation layer applies the
+discriminator explicitly:
+
+| Upstream station | Interpretation |
+|---|---|
+| **blocked** | it holds work it cannot pass on → the station ahead is slow |
+| **starved** | it has no work at all → material is not arriving |
+
+Near the head of the line there are too few upstream stations for the likelihood
+to settle this on its own, so the rule is applied directly and the system routes
+to "check inbound material" rather than naming a station.
+
+---
+
 ## 4. Estimation
 
 For each candidate station `k`, the expected profile at observing station `i` is
@@ -133,7 +159,7 @@ Two further hypotheses compete:
 | Hypothesis | Profile | Why it is needed |
 |---|---|---|
 | `NULL` | no deviation | the line is merely noisy |
-| `LINE_SUPPLY` | uniform starvation, no boundary | an inbound material delay starves everything from the head, and must not be blamed on a station |
+| `LINE_SUPPLY` | starvation decaying from the head, no blocking anywhere, no boundary | an inbound material delay starves the line from the front and must not be blamed on a station (see 3.3) |
 
 ### Observed vs inferred candidates
 
@@ -222,6 +248,8 @@ rather than a verdict.
 | The advantage comes from shadow-sensing, not tuning | B2 is the *same model* minus hidden candidates | `baselines.py` |
 | It is not just firing more often | every method calibrated to a matched false-alarm rate | `experiments.py` |
 | It stays quiet when nothing is wrong | clean episodes and a supply-delay scenario | `test_shadow_sensing.py` |
+| A supply delay is not blamed on a station | upstream blocked vs starved discriminator | `test_pipeline_and_hitl.py` |
+| Cold-start transients are excluded | windows begin only once the line has filled | `test_pipeline_and_hitl.py` |
 
 The sharpest single check is the inferred cycle time. In the view given to the
 model, that station's cycle time is **unmeasurable**. The simulator knows it. So
