@@ -1,0 +1,118 @@
+# RippleTwin — reference line configuration
+# Scoped to the Round 2 brief's illustrative parameters for DigitalTwin.ai:
+#   "roughly 30-50 stations across body construction, paint, and final assembly"
+#   "a majority of stations well-instrumented, a meaningful minority reliant on manual checks"
+# All values below are ILLUSTRATIVE ASSUMPTIONS for a synthetic line, not plant data.
+
+line:
+  name: "Plant-A / Line-1 (synthetic)"
+  takt_seconds: 60.0          # nominal takt for the line
+  n_stations: 42
+
+zones:
+  # station_count must sum to line.n_stations
+  - id: BODY
+    name: "Body Construction"
+    station_count: 14
+    base_cycle_seconds: 54.0   # nominal per-station processing time
+    cycle_spread: 0.10         # station-to-station variation in base cycle
+    internal_buffer: 2         # buffer slots between stations inside the zone
+    process_noise_cv: 0.055    # lognormal CV of processing time
+    microstop_rate: 0.010      # per-vehicle probability of a short stoppage
+    microstop_seconds: [8, 45]
+
+  - id: PAINT
+    name: "Paint Shop"
+    station_count: 10
+    base_cycle_seconds: 58.0
+    cycle_spread: 0.08
+    internal_buffer: 4         # paint carries larger internal decoupling
+    process_noise_cv: 0.070    # paint is more variable (environment sensitive)
+    microstop_rate: 0.014
+    microstop_seconds: [10, 60]
+
+  - id: FINAL
+    name: "Final Assembly"
+    station_count: 18
+    base_cycle_seconds: 56.0
+    cycle_spread: 0.12
+    internal_buffer: 3
+    process_noise_cv: 0.065
+    microstop_rate: 0.012
+    microstop_seconds: [8, 50]
+
+# Large decoupling buffers between zones (typical of body -> paint -> final)
+inter_zone_buffer:
+  BODY_PAINT: 14
+  PAINT_FINAL: 12
+
+# Quality inspection points. Each names the station index (0-based) that performs it,
+# and which upstream zone(s) its checks can in principle detect defects from.
+inspections:
+  - station: 13               # last BODY station
+    id: "BODY_GATE"
+    covers: [BODY]
+    detect_prob: 0.62         # imperfect in-line gate
+  - station: 23               # last PAINT station
+    id: "PAINT_GATE"
+    covers: [PAINT, BODY]
+    detect_prob: 0.58
+  - station: 33               # mid FINAL audit
+    id: "FINAL_AUDIT"
+    covers: [FINAL, PAINT, BODY]
+    detect_prob: 0.55
+  - station: 41               # end of line
+    id: "EOL_TEST"
+    covers: [FINAL, PAINT, BODY]
+    detect_prob: 0.88         # end-of-line test is the strongest gate
+
+variants:
+  # Mixed-model line. work_factor scales processing time per zone.
+  - id: SEDAN
+    share: 0.45
+    work_factor: {BODY: 1.00, PAINT: 1.00, FINAL: 1.00}
+    defect_susceptibility: 1.00
+  - id: SUV
+    share: 0.35
+    work_factor: {BODY: 1.09, PAINT: 1.06, FINAL: 1.12}
+    defect_susceptibility: 1.15
+  - id: EV
+    share: 0.20
+    work_factor: {BODY: 1.04, PAINT: 1.00, FINAL: 1.22}   # EV battery/HV work loads final assembly
+    defect_susceptibility: 1.25
+
+shifts:
+  # Operator-variation multiplier applied to manual-content stations.
+  - id: A
+    start_hour: 6
+    hours: 8
+    operator_factor: 1.00
+    operator_cv: 0.030
+  - id: B
+    start_hour: 14
+    hours: 8
+    operator_factor: 1.035
+    operator_cv: 0.045
+  - id: C
+    start_hour: 22
+    hours: 8
+    operator_factor: 1.06     # night shift: slower, more variable
+    operator_cv: 0.060
+
+sensing:
+  # Instrumentation tiers. Fractions are of total stations.
+  #   RICH    - cycle time, blocked/starved, buffer, machine channels (torque/vibration/temp)
+  #   BASIC   - cycle time + blocked/starved only (PLC timestamps, no process channels)
+  #   MANUAL  - NO automatic timestamps at all. Presence is known only because the vehicle
+  #             later appears at a scanned station. These are the hidden stations.
+  rich_fraction: 0.40
+  basic_fraction: 0.36
+  manual_fraction: 0.24        # "meaningful minority reliant on manual checks"
+  # Manual stations are placed with a bias toward older equipment vintage.
+  manual_bias_zones: {BODY: 1.4, PAINT: 0.7, FINAL: 1.1}
+
+environment:
+  # Paint shop is environment-sensitive; used as a real confounder in the data.
+  ambient_temp_c: {mean: 24.0, daily_amplitude: 4.5, noise: 0.8}
+  humidity_pct: {mean: 55.0, daily_amplitude: 12.0, noise: 3.0}
+  paint_humidity_sensitivity: 0.0045   # extra defect prob per pct-point above 65
