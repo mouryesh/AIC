@@ -103,17 +103,32 @@ correct answer is no station alert.
 This is the core of it. We do not learn "S07 blocks when S09 starves". We assert
 a priori, from conservation of material, that a constraint blocks upstream and
 starves downstream, and we test which station's position best explains the
-observed asymmetry. Two competing hypotheses guard it: `NULL`, and
-`LINE_SUPPLY` for a uniform starvation with no boundary — so an inbound material
-delay is not blamed on a station.
+observed asymmetry. Two competing hypotheses guard it: `NULL`, and `LINE_SUPPLY`
+for a shortfall entering at the head of the line.
+
+The sharpest version of this is the head-of-line test. Near the front of the
+line, "station k is slow" and "nothing is arriving" look almost identical from
+downstream — but one observation separates them cleanly:
+
+* the station upstream is **blocked** → it holds work it cannot hand over → k is slow
+* the station upstream is **starved** → it has no work at all → supply
+
+We got this wrong first. Modelling supply starvation as *uniform* let a decaying
+station hypothesis fit better, and a material delay was attributed to S02 with
+85% confidence while S01 sat starved at 179% of takt — the one thing that cannot
+happen if S02 is the constraint. Both the hypothesis and the recommendation now
+apply the test, and it is pinned by
+`test_head_of_line_supply_is_not_blamed_on_a_station`.
 
 **15. Isn't your simulator built to make your method work?**
 Fair challenge. The physics is three standard serial-line recursions, written
 before the estimator and not tuned to it. More to the point, the simulator
-**broke our first two designs**: a symmetric pressure channel mislocalised by
-one station, and a MAD z-score on starvation produced a 58% false-alarm rate.
-Both are documented in `docs/METHOD.md`. A simulator built to flatter the method
-would not have done that.
+**broke four of our designs**: a symmetric pressure channel that mislocalised by
+one station; a MAD z-score on starvation that produced a 58% false-alarm rate; a
+uniform supply hypothesis that let a material delay be blamed on a station; and
+a soft-assignment defect attribution that ranked the true source 11th of 42. All
+four are documented in `docs/METHOD.md` rather than buried. A simulator built to
+flatter the method would not have done that.
 
 ---
 
@@ -187,7 +202,7 @@ clean lines and abstains when ambiguous.
 The factory is simulated — the line, the disturbances, the defects. Everything
 downstream is real, running code: feature construction, the estimator,
 calibration, baselines, evaluation, explanation, recommendation, ledger,
-dashboard. 45 tests pass. No result in this repo is hard-coded.
+dashboard. 49 tests pass. No result in this repo is hard-coded.
 
 **27. What are the baselines, and are they fair?**
 B0 SPC per station, B1 Isolation Forest on the same features, B2 our own flow

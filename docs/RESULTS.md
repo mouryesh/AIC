@@ -9,16 +9,16 @@
 - **Episode length:** 1200 vehicles
 - **Nominal output rate:** 50.0 veh/h — this line loses ~17% of takt to ordinary blocking, starving and micro-stops, which is why shortfalls are measured against it rather than against takt
 - **Operating point:** every method calibrated to a 1% per-window false-alarm target on held-out disturbance-free data, then run through an identical detection rule
-- **Runtime:** 1778s
+- **Runtime:** 1756s
 
 ### Calibration per coverage level
 
 | Coverage | Observed stations | Mean pairwise corr | Effective sample size | tau | Detection threshold |
 |---|---|---|---|---|---|
-| 100% | 42 | 0.376 | 2.56 | 0.0610 | 45.6 |
-| 75% | 32 | 0.407 | 2.35 | 0.0735 | 32.1 |
-| 50% | 21 | 0.376 | 2.46 | 0.1174 | 42.9 |
-| 25% | 10 | 0.368 | 2.32 | 0.2317 | 27.1 |
+| 100% | 42 | 0.292 | 3.23 | 0.0770 | 42.6 |
+| 75% | 32 | 0.326 | 2.88 | 0.0901 | 31.3 |
+| 50% | 21 | 0.288 | 3.10 | 0.1478 | 40.0 |
+| 25% | 10 | 0.293 | 2.75 | 0.2750 | 23.9 |
 
 Stations on a coupled line are strongly correlated. Treating them as independent observations inflates the evidence by roughly `1/tau`, and an uncorrected detector fires almost continuously.
 
@@ -32,9 +32,9 @@ This is the core claim. Episodes are flow faults (`SLOWDOWN`, `COMBINED`) whose 
 
 | Sensor coverage | **RippleTwin** | B2 observed-only twin | B1 anomaly detection | B0 SPC on sensors | episodes |
 |---|---|---|---|---|---|
-| 25% | 16% | 0% | 0% | 0% | 46 |
-| 50% | 61% | 0% | 0% | 0% | 35 |
-| 75% | 71% | 0% | 0% | 0% | 27 |
+| 25% | 12% | 0% | 0% | 0% | 46 |
+| 50% | 59% | 0% | 0% | 0% | 35 |
+| 75% | 69% | 0% | 0% | 0% | 27 |
 
 The baselines do not merely score badly here. They score **exactly zero**, because naming an un-instrumented station is outside what they can express. B2 is the sharpest comparison: it is RippleTwin's own model with hidden stations removed as candidates — same physics, same likelihood, same calibration.
 
@@ -42,9 +42,9 @@ The baselines do not merely score badly here. They score **exactly zero**, becau
 
 | Sensor coverage | **RippleTwin** | B2 observed-only twin | B1 anomaly detection | B0 SPC on sensors |
 |---|---|---|---|---|
-| 25% | 36% | 19% | 9% | 0% |
-| 50% | 63% | 62% | 9% | 0% |
-| 75% | 77% | 77% | 26% | 0% |
+| 25% | 32% | 17% | 1% | 0% |
+| 50% | 62% | 65% | 3% | 0% |
+| 75% | 76% | 78% | 27% | 0% |
 
 ![coverage curve](../results/figures/coverage_curve.png)
 
@@ -54,8 +54,8 @@ The baselines do not merely score badly here. They score **exactly zero**, becau
 
 At 100% sensor coverage there are no hidden stations, so shadow-sensing has nothing to contribute — and it contributes nothing:
 
-- RippleTwin exact-station: **92.5%**
-- Observed-only twin: **92.5%**
+- RippleTwin exact-station: **92.8%**
+- Observed-only twin: **92.8%**
 
 These are identical. We regard this as the most convincing single result in the evaluation: the advantage appears exactly and only where instrumentation is missing, which is what should happen if the mechanism is real rather than an artefact of tuning. A method that also won here would be telling us its gains came from somewhere else.
 
@@ -63,10 +63,10 @@ These are identical. We regard this as the most convincing single result in the 
 
 | Sensor coverage | **RippleTwin** | B2 observed-only twin | B1 anomaly detection | B0 SPC on sensors |
 |---|---|---|---|---|
-| 25% | 21% | 7% | 0% | 20% |
-| 50% | 71% | 33% | 0% | 64% |
-| 75% | 83% | 48% | 0% | 83% |
-| 100% | 92% | 92% | 3% | 99% |
+| 25% | 18% | 6% | 0% | 15% |
+| 50% | 69% | 31% | 0% | 61% |
+| 75% | 81% | 46% | 0% | 77% |
+| 100% | 93% | 93% | 0% | 99% |
 
 At high coverage SPC is a strong baseline, as it should be — if a station is instrumented and slows down, a control chart on its own cycle time will find it. The gap opens as coverage falls.
 
@@ -78,13 +78,13 @@ The sharpest falsifiable claim in the project. For a station with no sensor, Rip
 
 | Coverage | Source station | n | Median error | Mean abs error | Mean abs error (s) |
 |---|---|---|---|---|---|
-| 25% | instrumented | 2 | 6.1% | 6.1% | 5.3s |
-| 25% | no sensor | 9 | 5.0% | 5.2% | 4.1s |
-| 50% | instrumented | 10 | 5.3% | 4.4% | 3.6s |
-| 50% | no sensor | 15 | 4.0% | 4.3% | 3.6s |
-| 75% | instrumented | 19 | 2.8% | 4.1% | 3.1s |
-| 75% | no sensor | 17 | 3.1% | 3.6% | 2.9s |
-| 100% | instrumented | 39 | 3.1% | 3.6% | 2.8s |
+| 25% | instrumented | 2 | 7.7% | 7.7% | 6.7s |
+| 25% | no sensor | 8 | 3.8% | 4.3% | 3.3s |
+| 50% | instrumented | 10 | 4.0% | 4.3% | 3.4s |
+| 50% | no sensor | 16 | 4.3% | 4.5% | 3.6s |
+| 75% | instrumented | 19 | 3.2% | 3.9% | 3.0s |
+| 75% | no sensor | 18 | 3.3% | 3.9% | 3.1s |
+| 100% | instrumented | 40 | 3.0% | 3.5% | 2.7s |
 
 ![cycle time accuracy](../results/figures/cycle_time_accuracy.png)
 
@@ -98,10 +98,10 @@ A detector that never stays quiet is worthless on a factory floor. All methods s
 
 | Sensor coverage | **RippleTwin** | B2 observed-only twin | B1 anomaly detection | B0 SPC on sensors |
 |---|---|---|---|---|
-| 25% | 0.88% | 0.86% | 1.46% | 0.44% |
-| 50% | 1.14% | 1.09% | 0.29% | 0.97% |
-| 75% | 1.29% | 1.25% | 0.52% | 1.29% |
-| 100% | 1.18% | 1.18% | 0.63% | 2.00% |
+| 25% | 0.79% | 0.68% | 0.68% | 0.58% |
+| 50% | 1.22% | 1.20% | 3.02% | 1.27% |
+| 75% | 1.38% | 1.32% | 3.90% | 1.63% |
+| 100% | 1.54% | 1.54% | 1.27% | 2.53% |
 
 Scenario-level behaviour on the named cases:
 
@@ -118,7 +118,7 @@ We had intended to headline warning lead time. The metric turned out to be badly
 
 - Hidden-station flow faults examined: **27**
 - Never produced a sustained line-level throughput shortfall: **21 (78%)**
-- Of those invisible faults, RippleTwin localised: **52%**
+- Of those invisible faults, RippleTwin localised: **57%**
 
 A single station slowing on a 42-station line with decoupling buffers frequently never shows up as an aggregate shortfall — the buffers absorb it and the loss is real but diffuse. For those faults, lead time is not shorter. It is **undefined, because the alternative never arrives**.
 
@@ -130,11 +130,11 @@ This is a stronger claim than a lead-time number, and it is the one the evidence
 
 The flow model detects a **pure quality drift in 0% of windows** — correctly, because a station holding takt while producing bad work leaves no timing signature. The genealogy path handles that case.
 
-- True source ranked in the top 3 of 42 candidates: **21%** of episodes
+- True source ranked in the top 3 of 42 candidates: **26%** of episodes
 - Top 5: **42%**
 - Median rank of the true source: **7 of 42**
-- Estimated defect-rate multiplier: **7.8x** against a true injected **6.6x**
-- False-alarm rate on clean episodes: **1.4%**
+- Estimated defect-rate multiplier: **7.9x** against a true injected **6.6x**
+- False-alarm rate on clean episodes: **1.7%**
 
 **This is a shortlist, not a verdict**, and we present it as one. Its value is narrowing 42 stations to a handful with a defensible reason, and estimating how far off-nominal the source is running. Note that these figures are identical at every coverage level: the quality path uses only inspection results and the build sequence, so it is unaffected by how many stations have sensors.
 

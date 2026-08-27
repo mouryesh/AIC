@@ -65,7 +65,7 @@ the direction of causation a priori, because material only moves one way.
 | Differentiation | claimed | measured against 3 baselines at a **matched false-alarm rate** |
 | "Works with partial sensors" | claimed | a coverage sweep from 100% → 25% instrumentation |
 | Human in the loop | in the diagram | hash-chained decision ledger, abstention when ambiguous |
-| Evidence | none | 110 held-out episodes, 45 passing tests, reproducible from a seed |
+| Evidence | none | 110 held-out episodes, 49 passing tests, reproducible from a seed |
 
 Round 1 argued the idea was worth testing. This repository is the test —
 including the parts of it we failed.
@@ -84,39 +84,42 @@ per-window false-alarm rate:
 
 | Sensor coverage | **RippleTwin** | B2 observed-only twin | B1 anomaly detection | B0 SPC | episodes |
 |---|---|---|---|---|---|
-| 75% | **71%** | 0% | 0% | 0% | 27 |
-| 50% | **61%** | 0% | 0% | 0% | 35 |
-| 25% | **16%** | 0% | 0% | 0% | 46 |
+| 75% | **69%** | 0% | 0% | 0% | 27 |
+| 50% | **59%** | 0% | 0% | 0% | 35 |
+| 25% | **12%** | 0% | 0% | 0% | 46 |
 
 The baselines do not merely score badly. They score **exactly zero** — naming an
 unmeasured station is outside what they can express.
 
 **2. At 100% sensor coverage, RippleTwin and the observed-only twin are
-identical (92.5% vs 92.5%).** This is the result we consider most convincing.
-With nothing hidden there is nothing to infer, and the advantage vanishes
-entirely. It appears exactly and only where instrumentation is missing — which
-is what should happen if the mechanism is real rather than an artefact of
-tuning. (At full coverage plain SPC actually edges both at 99%, and it should:
-if a station is instrumented and slows down, a control chart will find it.)
+identical (92.8% vs 92.8%).** This is the result we consider most
+convincing. With nothing hidden there is nothing to infer, and the advantage
+vanishes entirely. It appears exactly and only where instrumentation is
+missing — which is what should happen if the mechanism is real rather than an
+artefact of tuning. (At full coverage plain SPC actually edges both at
+99%, and it should: if a station is instrumented and slows down, a
+control chart will find it.)
 
 **3. 78% of hidden-station faults never reached the production board at all**
 (21 of 27). They never produced a sustained line-level throughput shortfall, so
 aggregate monitoring would not have caught them later — it would not have caught
-them *ever*. RippleTwin localised 52% of those invisible faults.
+them *ever*. RippleTwin localised 57% of those invisible faults.
 
 **4. A station's cycle time can be estimated without measuring it.**
-Median error **3.1%** at 75% coverage (n=17), 4.0% at 50%, 5.0% at 25%. In the
+Median error **3.3%** at 75% coverage (n=18), 4.3% at 50%, 3.8% at 25%. In the
 data the model receives that number is unmeasurable; the simulator knows it, so
 the estimate is graded rather than asserted.
 
 **5. It stays quiet.** 0 alerts on the normal-variation scenario, and a
-line-wide material delay is attributed to `LINE_SUPPLY` rather than to a station.
+line-wide material delay is routed to `CHECK_INBOUND_MATERIAL` rather than blamed
+on a station — because the station upstream of the suspect is starved, not
+blocked, and only a supply shortfall does that.
 
 **6. The quality path is a shortlist, and we present it as one.** A pure quality
 drift is invisible to the flow model (0% of windows, correctly). Genealogy
 attribution puts the true source in the top 5 of 42 candidates in 42% of
-episodes, median rank 7, and estimates the defect-rate multiplier at 7.8× against
-a true 6.6×.
+episodes, median rank 7, and estimates the defect-rate multiplier at 7.9x
+against a true 6.6x.
 
 ---
 
@@ -295,7 +298,7 @@ src/rippletwin/
   explain/ recommend/ hitl/   explanation, recommendation, decision ledger
 app/dashboard.py              three stakeholder views
 demo/run_demo.py              deterministic flagship demo
-tests/                        45 tests, physics first
+tests/                        49 tests, physics first
 docs/                         METHOD · RESULTS · BUSINESS_CASE · JUDGE_QA · DEMO_VIDEO
 results/                      tables and figures, all generated
 ```
@@ -309,6 +312,8 @@ results/                      tables and figures, all generated
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | value drivers, ROI arithmetic, sensor economics, risks |
 | [docs/JUDGE_QA.md](docs/JUDGE_QA.md) | 33 hard questions, answered |
 | [docs/DEMO_VIDEO.md](docs/DEMO_VIDEO.md) | storyboard and narration |
+| [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) | Round 2 deliverables mapped to the brief |
+| [docs/HANDOVER.md](docs/HANDOVER.md) | what is done, and the steps only a human can do |
 
 ---
 
