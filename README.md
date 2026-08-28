@@ -91,7 +91,7 @@ Full positioning and citations: [docs/REFERENCES.md](docs/REFERENCES.md).
 | Differentiation | claimed | measured against **4 baselines including the published Turning Point Method**, all at a matched false-alarm rate |
 | "Works with partial sensors" | claimed | a coverage sweep from 100% → 25% instrumentation |
 | Human in the loop | in the diagram | hash-chained decision ledger, abstention when ambiguous |
-| Evidence | none | 110 held-out episodes, 62 passing tests, reproducible from a seed |
+| Evidence | none | 110 held-out episodes, 79 passing tests, reproducible from a seed |
 | "No new hardware" | claimed | and when hardware *is* worth buying, it says **which station** |
 
 Round 1 argued the idea was worth testing. This repository is the test —
@@ -154,6 +154,51 @@ shortfall does that.
 stations by how much instrumenting each would buy, needing no production data.
 It flags the two adjacent blind pairs (~97% confusable) as first priority — and
 those are exactly the stations where measured localisation collapses.
+
+---
+
+## Could this actually run in a plant?
+
+The most common way these projects die is not a weak model — it is the data
+layer, and alerts nobody owns. Both are addressed as first-class parts of the
+system, not as slideware.
+
+**What we need is short, and mostly already collected.** The critical signal —
+blocked/starved state — is a standard OEE equipment state, derived at the PLC as
+`STARVED = motor running AND infeed empty`, `BLOCKED = motor running AND outfeed
+full`, from photocells most conveyor-linked stations already carry. Because
+these are *line* losses rather than station losses, plants normally exclude them
+from a station's own OEE and file them as a nuisance category.
+
+> RippleTwin's primary input is, in a real sense, waste data the plant is
+> already paying to store.
+
+**Find out before committing.** A Phase 0 assessment runs in the first meeting:
+
+```bash
+PYTHONPATH=src python -m rippletwin.integrate.assess --demo
+PYTHONPATH=src python -m rippletwin.integrate.assess --contract
+```
+
+It returns `FULL`, `FLOW_ONLY`, `QUALITY_ONLY` or `NOT_VIABLE`, names the
+blockers, and — on a fully instrumented line — tells you that shadow-sensing has
+nothing to add and a conventional twin will do.
+
+**Where it sits.** Level 3 (MES/operations) in Purdue terms, read-only, one-way
+across the IT/OT boundary. It writes nothing into OT, so a pilot needs no
+control-logic change and no maintenance window to start.
+
+**What happens to an alert.** It becomes a work order with an owner *role*, a
+respond-by time derived from forecast impact, a verification prompt, escalation,
+and a CMMS-mappable payload — plus the number supervisors are actually stuck on:
+
+> Losing ~12.5 vehicles/hour while this holds. Deferring to the break costs
+> ~25 vehicles.
+
+A monitor-only recommendation deliberately raises **no** work order; inventing a
+task out of "keep an eye on it" is how alert fatigue starts.
+
+Full detail: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ---
 
@@ -335,7 +380,9 @@ src/rippletwin/
 app/dashboard.py              three stakeholder views
 demo/run_demo.py              deterministic flagship demo
   twin/placement.py           where the next sensor should go
-tests/                        62 tests, physics first
+  integrate/contract.py       the input contract + Phase 0 readiness assessment
+  recommend/dispatch.py       alert -> owned, time-bounded work order
+tests/                        79 tests, physics first
 docs/                         METHOD · RESULTS · BUSINESS_CASE · JUDGE_QA · DEMO_VIDEO
 results/                      tables and figures, all generated
 ```
@@ -345,6 +392,7 @@ results/                      tables and figures, all generated
 | Document | What it covers |
 |---|---|
 | [docs/METHOD.md](docs/METHOD.md) | the mechanism, prior art, the estimator, and the designs we killed |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | what we need from a plant, where the software sits, and who acts |
 | [docs/REFERENCES.md](docs/REFERENCES.md) | what is prior art, what is ours, and how to check |
 | [docs/RESULTS.md](docs/RESULTS.md) | every table, with metric definitions |
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | value drivers, ROI arithmetic, sensor economics, risks |

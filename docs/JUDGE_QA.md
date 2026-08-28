@@ -220,6 +220,73 @@ floor: a deviation that stays inside takt is reported as "watch", not an alert.
 
 ## Implementation
 
+**20a. Be specific: what exactly do you need from my plant?**
+Five required signals, and we will tell you in the first meeting whether you
+have them. Station state (running/blocked/starved) from the PLC or your existing
+OEE system; VIN read per station from traceability; build sequence with variant
+from MES; shift calendar; and station order with buffer capacities, which is a
+day with a controls engineer rather than a data project. Gate results and the
+process-FMEA defect map are optional and unlock the quality path.
+
+Run `python -m rippletwin.integrate.assess --contract` for the full list with
+interfaces and what each missing signal costs you.
+
+**20b. Does that data actually exist in a real plant?**
+The critical one does, and it is cheaper than people expect. Blocked and starved
+are standard OEE equipment states, conventionally derived at the PLC as
+`STARVED = motor running AND infeed empty` and `BLOCKED = motor running AND
+outfeed full`, from infeed/outfeed photocells that most conveyor-linked stations
+already carry for interlocks. PackML standardises these states across modern
+Siemens, Allen-Bradley, Beckhoff and B&R controllers.
+
+The useful quirk: because starved and blocked are *line* losses, plants normally
+exclude them from a station's own OEE and treat them as a nuisance category —
+penalising a machine for being starved is a good way to start an argument with
+its operators. So this data is widely collected and rarely used. **Our primary
+input is waste data the plant is already paying to store.**
+
+**20c. Where does your software sit, and can it break my line?**
+Level 3 (MES/operations) in Purdue terms, or a Level 3.5 DMZ historian replica
+where segmentation requires it. Read-only, one direction across the IT/OT
+boundary. It writes nothing into OT and has no capability to — so it needs no
+control-logic change and no maintenance window to start a pilot, and it cannot
+cause an incident.
+
+**20d. What are your timing requirements?**
+Station events must share a time base to within about a second, roughly a
+sixtieth of takt, because the method compares event ordering across stations.
+NTP against a plant time server is enough. This is worth checking rather than
+assuming: industry guidance on OEE architecture is notably silent on clock sync,
+and events timestamped on arrival at a historian rather than at the PLC will
+show queueing delay as cycle-time variation. The readiness assessment flags it.
+
+**20e. Data volume?**
+One row per vehicle per instrumented station — roughly 60k rows/day on a
+42-station line at 60-second takt. Laptop scale. It fits in an existing historian
+with no new infrastructure.
+
+**20f. What happens to an alert after you raise it?**
+This is the question we think decides whether the system survives contact with a
+plant, because the most-cited failure is not accuracy — it is that *"a dashboard
+shows an alert but nobody owns the next action"*.
+
+So the twin emits a **work order**, not a notification: an owner role, a
+respond-by time derived from forecast impact, a verification prompt asking what
+was actually found, an escalation path, and a CMMS-mappable payload. Plus the
+number supervisors are genuinely stuck on — *"do I act now or wait?"* — answered
+as arithmetic: "losing ~12.5 vehicles/hour; deferring to the break costs ~25."
+
+And a monitor-only recommendation raises **no** work order at all. Inventing a
+task out of "keep an eye on it" is how alert fatigue starts.
+
+**20g. What if my plant is not ready?**
+The assessment says so, and that is its most valuable output. It returns
+`NOT_VIABLE` with the blockers named. Most failed digital-twin projects should
+have received that answer before the money was spent. It will also tell you if
+your line is *fully* instrumented — in which case shadow-sensing has nothing to
+add, our own evaluation shows it adds nothing, and you should use a conventional
+twin instead.
+
 **21. How does it integrate with legacy equipment?**
 Read-only. It consumes PLC station timestamps, MES gate results and the build
 sequence — data these plants already record. It writes to no control system.

@@ -51,13 +51,16 @@ Every element the brief names for the proposal is covered:
       Point Method (Li, Chang & Ni 2009)** — all at a matched false-alarm rate
 - [x] Prior art cited, not claimed — `docs/REFERENCES.md`
 - [x] Sensor-placement guidance implemented and directionally validated
+- [x] Input data contract specified against real interfaces (OPC UA / PackML / MES)
+- [x] Phase 0 readiness assessment runnable — returns NOT_VIABLE when it should
+- [x] Alerts become owned, time-bounded work orders with a CMMS payload
 - [x] Evaluation works — 110 held-out episodes, 4 coverage levels
 - [x] Results reproducible — fixed seeds; disjoint fit / calibration / test data
 - [x] Demo works — deterministic, `python demo/run_demo.py`
 - [x] Dashboard works — verified rendering in a browser, not just HTTP 200
 - [x] Explainability works — provenance-tagged, no LLM in the path
 - [x] Human-in-the-loop works — hash-chained ledger, tamper test passes
-- [x] Tests pass — 62/62
+- [x] Tests pass — 79/79
 
 ## Repository hygiene
 
