@@ -743,6 +743,48 @@ def build(template: Path, out: Path, results_dir: Path, team: dict) -> Path:
     footnote(s, "Validated directionally against measured localisation error (r = 0.37 across 24 source "
                 "stations, few episodes each). Simulated prototype result on synthetic data.")
 
+    # ======================================== 13c. deployment realism
+    s = slide_frame(pool, "What we need from your plant, and where we sit",
+                    "The data layer is what kills these projects — so it is designed, not assumed")
+    w2 = (SW - 2 * MARGIN - Inches(0.24)) / 2
+    bullet_card(s, MARGIN, Inches(1.3), w2, Inches(2.15),
+                "FIVE REQUIRED SIGNALS — MOSTLY ALREADY COLLECTED",
+                "Station state (running/blocked/starved) · VIN read per station · "
+                "build sequence with variant · shift calendar · station order and "
+                "buffer capacities.\n\n"
+                "Blocked/starved is a standard OEE state, derived at the PLC from "
+                "infeed/outfeed photocells most stations already have for "
+                "interlocks.", PURPLE)
+    bullet_card(s, MARGIN + w2 + Inches(0.24), Inches(1.3), w2, Inches(2.15),
+                "READ-ONLY, LEVEL 3, ONE DIRECTION",
+                "Sits at MES/operations level in Purdue terms — or a DMZ historian "
+                "replica. Writes nothing into OT.\n\n"
+                "So a pilot needs no control-logic change and no maintenance "
+                "window to start, and it cannot cause an incident.\n\n"
+                "~60k rows/day. Laptop scale.", GREEN)
+    rect(s, MARGIN, Inches(3.65), SW - 2 * MARGIN, Inches(0.95), fill=DARK)
+    textbox(s, MARGIN + Inches(0.25), Inches(3.8), SW - 2 * MARGIN - Inches(0.5),
+            Inches(0.7),
+            "Because blocked and starved are LINE losses, plants exclude them from "
+            "a station's own OEE and treat them as a nuisance category. This data "
+            "is widely collected and rarely used — our primary input is waste data "
+            "the plant already pays to store.",
+            size=12.5, bold=True, color=WHITE)
+    bullet_card(s, MARGIN, Inches(4.75), w2, Inches(1.5),
+                "PHASE 0 RUNS IN THE FIRST MEETING",
+                "A readiness assessment returns FULL / FLOW_ONLY / QUALITY_ONLY / "
+                "NOT_VIABLE and names the blockers. Its most valuable output is "
+                "NOT_VIABLE — the answer most failed twin projects should have had "
+                "before the money was spent.", AMBER)
+    bullet_card(s, MARGIN + w2 + Inches(0.24), Inches(4.75), w2, Inches(1.5),
+                "AN ALERT BECOMES SOMEBODY'S JOB",
+                "Owner role · respond-by from forecast impact · verification prompt "
+                "· escalation · CMMS payload.\n"
+                "Plus the question supervisors are stuck on: \"losing ~12.5 "
+                "vehicles/hour; deferring to the break costs ~25.\"", GREEN)
+    footnote(s, "The most-cited failure of these systems is not accuracy — it is that a dashboard shows an "
+                "alert and nobody owns the next action. See docs/DEPLOYMENT.md.")
+
     # ================================================== 14. roadmap
     s = slide_frame(pool, "Phased rollout", "Deliberately slow at the start, because trust is spent once")
     phases = [

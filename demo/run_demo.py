@@ -44,6 +44,7 @@ from rippletwin.hitl.ledger import (  # noqa: E402
     OUTCOME_CONFIRMED,
     DecisionLedger,
 )
+from rippletwin.recommend.dispatch import to_work_order  # noqa: E402
 from rippletwin.recommend.engine import recommend_flow, recommend_quality  # noqa: E402
 from rippletwin.twin import genealogy as GN  # noqa: E402
 from rippletwin.models.baselines import (  # noqa: E402
@@ -418,6 +419,36 @@ def main() -> int:
             confidence=float(rec.confidence),
             recommendation=rec.as_dict(), explanation=exp.as_dict(),
         )
+
+        # ------------------------------------------------------ step 8b
+        step("8b", "DISPATCH: THE ALERT BECOMES SOMEBODY'S JOB")
+        wo = to_work_order(line, rec, fc, sequence=entry.entry_id,
+                           source_alert={"entry_id": entry.entry_id})
+        if wo is None:
+            print("  Monitor-only: deliberately raises NO work order. Creating a")
+            print("  task out of 'keep an eye on it' is how alert fatigue starts.")
+        else:
+            print("  The most-cited reason these systems fail is not accuracy. It is")
+            print("  that a dashboard shows an alert and nobody owns the next action.")
+            print(f"\n  WORK ORDER   : {wo.work_order_id}")
+            print(f"  OWNER        : {wo.owner_role}")
+            print(f"  RESPOND BY   : within {wo.respond_within_min} min "
+                  f"(escalates to {wo.escalate_to} after {wo.escalate_after_min} min)")
+            print(f"  ASSET        : {', '.join(wo.target_stations)}")
+            print(f"  VERIFY       : {wo.verification}")
+            if wo.waiting_cost:
+                wc = wo.waiting_cost
+                print(f"\n  ACT NOW, OR AT THE BREAK?")
+                print(f"    losing ~{wc['units_lost_per_hour']:.1f} vehicles/hour "
+                      f"while this holds")
+                print(f"    deferring {wc['minutes_until_next_break']:.0f} min costs "
+                      f"~{wc['units_lost_if_deferred']:.1f} vehicles")
+                print(f"    -> {'deferring is defensible' if wc['defer_is_reasonable'] else 'not worth deferring'}")
+                print("\n  Supervisors are not stuck on whether a station is slow.")
+                print("  They are stuck on whether to act now or lose the output.")
+                print("  That is arithmetic, and the forecast already contains it.")
+            print(f"\n  CMMS payload keys: "
+                  f"{', '.join(list(wo.as_cmms_payload().keys())[:8])} ...")
 
         # ------------------------------------------------------------ step 9
         step(9, "HUMAN DECISION AND OUTCOME")
