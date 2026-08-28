@@ -42,6 +42,7 @@ from rippletwin.hitl.ledger import (  # noqa: E402
 from rippletwin.recommend.engine import recommend_flow  # noqa: E402
 from rippletwin.twin import genealogy as GN  # noqa: E402
 from rippletwin.twin.pipeline import fit_context, infer, simulate  # noqa: E402
+from rippletwin.twin.placement import ambiguity, recommend_sensors  # noqa: E402
 from rippletwin.twin.propagate import current_buffer_levels, forecast_ripple  # noqa: E402
 from rippletwin.twin.shadow import infer_hidden_cycle_time  # noqa: E402
 
@@ -568,6 +569,53 @@ else:
     st.caption(
         f"Recovery factor {recovery:.0%} — finding a constraint sooner does not "
         f"eliminate it, it shortens it. Opex assumed at 20% of deployment cost."
+    )
+
+    st.markdown("---")
+    st.subheader("Where the next sensor should go")
+    st.markdown(
+        "The question is not *whether* to instrument the blind stations — it is "
+        "**which ones buy the most**. This ranking comes from the propagation "
+        "model and needs **no production data**, so it can be run before "
+        "committing to a retrofit."
+    )
+    rec = recommend_sensors(line, n_recommend=5)
+    amb = ambiguity(line, line.observed_indices)
+    if len(rec):
+        show = rec.rename(columns={
+            "rank": "Priority", "station_id": "Station", "zone": "Zone",
+            "total_gain": "Value of information",
+            "own_ambiguity_before": "Currently confusable",
+            "unlocks": "Also helps resolve",
+        })
+        show["Currently confusable"] = (
+            show["Currently confusable"] * 100
+        ).round(0).astype(int).astype(str) + "%"
+        show["Value of information"] = show["Value of information"].round(2)
+        st.dataframe(
+            show[["Priority", "Station", "Zone", "Currently confusable",
+                  "Value of information", "Also helps resolve"]],
+            use_container_width=True, hide_index=True)
+
+        blind_adj = [
+            (line.stations[i].station_id, line.stations[i + 1].station_id)
+            for i in line.hidden_indices
+            if (i + 1) in set(line.hidden_indices)
+        ]
+        if blind_adj:
+            pairs = ", ".join(f"{a}/{b}" for a, b in blind_adj)
+            st.info(
+                f"**{pairs}** are adjacent blind stations. With no sensor between "
+                f"them they produce almost the same signature at every observing "
+                f"station, so no amount of data will separate them — the twin "
+                f"reports them as a group and abstains. Breaking up an adjacent "
+                f"pair is worth more than instrumenting an isolated blind station."
+            )
+    st.caption(
+        "Ranked on separability — the residual left when the closest rival "
+        "hypothesis is fitted to a station's response, in units of measurement "
+        "noise. Chosen over the more intuitive similarity score because that one "
+        "is not monotone: it can imply a new sensor made things worse."
     )
 
     st.markdown("---")

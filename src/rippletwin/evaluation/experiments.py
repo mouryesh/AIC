@@ -227,6 +227,7 @@ def run_experiment(
                         "split": split, "seed": seed, "coverage": c, "method": name,
                         "fault_kind": truth.kind, "source_hidden": truth.source_is_hidden,
                         "magnitude": truth.magnitude, "threshold": thr,
+                        "true_station": truth.station,
                     }
                     if truth.has_fault:
                         m = M.evaluate_localization(fr, wt, truth)

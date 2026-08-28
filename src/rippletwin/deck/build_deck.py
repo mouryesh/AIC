@@ -421,6 +421,40 @@ def build(template: Path, out: Path, results_dir: Path, team: dict) -> Path:
     footnote(s, "A correlation model sees S07 blocking and S09 starving and cannot say which caused which. "
                 "The flow model knows the direction of causation a priori — material moves one way.")
 
+    # ============================================ 5b. prior art (critical)
+    s = slide_frame(pool, "This part is not our idea — and we say so",
+                    "The mechanism is the Turning Point Method, Li, Chang & Ni (2009)")
+    textbox(s, MARGIN, Inches(1.3), SW - 2 * MARGIN, Inches(0.85),
+            "The blockage/starvation boundary is one of the best-established "
+            "bottleneck-detection methods in manufacturing science. We implement "
+            "it as a baseline rather than quietly reinventing it. Our contribution "
+            "is what happens when the boundary falls in a gap with no sensors.",
+            size=13, color=DARK)
+
+    tp75 = R.hv(0.75, "B3_TurningPoint", "top1")
+    tpd75 = R.hv(0.75, "B3_TurningPoint", "detected_episode")
+    rtd75 = R.hv(0.75, "RippleTwin", "detected_episode")
+    kpi_row(s, Inches(2.3), [
+        (pct(tpd75), "Turning Point Method — detects the disturbance", GREEN),
+        (pct(tp75), "…but names the right station", RED),
+        (pct(R.hv(0.75, "RippleTwin", "top1")), "RippleTwin names the right station", PURPLE),
+    ])
+    textbox(s, MARGIN, Inches(3.7), SW - 2 * MARGIN, Inches(0.5),
+            "It is not that the published method is bad. It detects as reliably "
+            "as we do — better, at 50% coverage. It simply cannot name a station "
+            "it cannot measure.", size=12.5, bold=True, color=DARK)
+
+    rows = [["", "Published Turning Point / Active Period", "RippleTwin"],
+            ["Output space", "instrumented stations only", "every station, instrumented or not"],
+            ["Decision rule", "deterministic scan for a sign change", "posterior over candidate positions"],
+            ["Distance", "station adjacency", "buffer capacity — a 14-slot buffer decouples far more than one"],
+            ["Unidentifiable cases", "always returns a station", "abstains, and flags it for a sensor"],
+            ["Hidden station state", "—", "estimates its cycle time (~3% median error)"]]
+    table(s, MARGIN, Inches(4.35), SW - 2 * MARGIN, rows, col_w=[1.7, 3.6, 4.2],
+          row_h=Inches(0.4), size=10)
+    footnote(s, "Baseline implemented in the strengthened deviation-scored form — more favourable to it than "
+                "the published version — and calibrated to the same false-alarm rate. Full citations in docs/REFERENCES.md.")
+
     # ================================================== 6. architecture
     s = slide_frame(pool, "How RippleTwin works", "Every box has an implementation behind it")
     stages = [
@@ -501,25 +535,27 @@ def build(template: Path, out: Path, results_dir: Path, team: dict) -> Path:
     kpi_row(s, Inches(1.3), [
         (pct(R.hv(cov_main, "RippleTwin", "top1")),
          f"RippleTwin — exact station, at {cov_main*100:.0f}% coverage", PURPLE),
+        (pct(R.hv(cov_main, "B3_TurningPoint", "top1")),
+         "Turning Point Method (Li et al. 2009)", RED),
         (pct(R.hv(cov_main, "B2_observed_only_twin", "top1")),
          "Conventional observed-only twin", RED),
-        (pct(R.hv(cov_main, "B1_IsolationForest", "top1")),
-         "Anomaly detection", RED),
         (pct(R.hv(cov_main, "B0_SPC_observed", "top1")), "SPC on sensors", RED),
     ])
     textbox(s, MARGIN, Inches(2.62), SW - 2 * MARGIN, Inches(0.4),
             "The baselines do not merely score badly. They score exactly zero — "
             "naming an unmeasured station is outside what they can express.",
             size=12.5, bold=True, color=DARK)
-    rows = [["Sensor coverage", "RippleTwin", "B2 observed-only twin", "B1 anomaly", "B0 SPC"]]
+    rows = [["Coverage", "RippleTwin", "B3 Turning Point", "B2 obs-only twin",
+             "B1 anomaly", "B0 SPC"]]
     for c in covs:
         rows.append([f"{c*100:.0f}%",
                      pct(R.hv(c, "RippleTwin", "top1")),
+                     pct(R.hv(c, "B3_TurningPoint", "top1")),
                      pct(R.hv(c, "B2_observed_only_twin", "top1")),
                      pct(R.hv(c, "B1_IsolationForest", "top1")),
                      pct(R.hv(c, "B0_SPC_observed", "top1"))])
     table(s, MARGIN, Inches(3.15), Inches(6.1), rows,
-          col_w=[1.5, 1.2, 1.5, 1.0, 0.9], row_h=Inches(0.34), size=10)
+          col_w=[1.1, 1.1, 1.3, 1.3, 1.0, 0.8], row_h=Inches(0.34), size=9.5)
     # The exact-station variant, so the chart and the table beside it are the
     # same metric. A within-one-station chart next to an exact-station table
     # reads as a contradiction.
@@ -650,8 +686,8 @@ def build(template: Path, out: Path, results_dir: Path, team: dict) -> Path:
     footnote(s, "No figure on this slide is measured from a real plant. All inputs are editable in the dashboard.")
 
     # ================================================== 13. sensor economics
-    s = slide_frame(pool, "Sensor economics: we are not competing with the sensor budget",
-                    "We are telling you how to spend it")
+    s = slide_frame(pool, "Sensor economics: cost is not the binding constraint",
+                    "The calendar is — retrofits wait for a maintenance window")
     rows = [["", "Retrofit every blind station", "RippleTwin"],
             ["Capital (10 stations)", "~$180,000", "~$150,000 year 1"],
             ["When it can be installed", "scheduled maintenance windows only", "against data already recorded"],
@@ -672,6 +708,40 @@ def build(template: Path, out: Path, results_dir: Path, team: dict) -> Path:
             "blind stations inference already covers, and which genuinely need "
             "instrumenting — so the retrofit budget goes where it actually buys something.",
             size=12.5, bold=True, color=WHITE)
+
+    # ============================================ 13b. sensor placement
+    s = slide_frame(pool, "We do not compete with the sensor budget — we direct it",
+                    "Which blind station to instrument next, computed with no production data")
+    textbox(s, MARGIN, Inches(1.3), SW - 2 * MARGIN, Inches(0.7),
+            "A blind station is locatable only if its signature is "
+            "distinguishable, from the stations we can see, from its neighbours'. "
+            "Two blind stations side by side are not — and that is knowable from "
+            "the sensor layout alone, before any data exists.",
+            size=13, color=DARK)
+    try:
+        from ..twin.placement import recommend_sensors
+        from ..factory.topology import build_line as _bl
+        _line = _bl(R.manifest["config"]["line_config"],
+                    seed=R.manifest["config"]["line_seed"])
+        rec = recommend_sensors(_line, n_recommend=5)
+        rows = [["Priority", "Station", "Zone", "Currently confusable",
+                 "Also helps resolve"]]
+        for _, r in rec.iterrows():
+            rows.append([str(int(r["rank"])), r["station_id"], r["zone"],
+                         f"{r['own_ambiguity_before'] * 100:.0f}%", r["unlocks"]])
+        table(s, MARGIN, Inches(2.2), SW - 2 * MARGIN, rows,
+              col_w=[1.0, 1.2, 1.2, 2.0, 4.0], row_h=Inches(0.38), size=10.5)
+    except Exception:
+        pass
+    rect(s, MARGIN, Inches(4.6), SW - 2 * MARGIN, Inches(1.0), fill=PURPLE)
+    textbox(s, MARGIN + Inches(0.25), Inches(4.75), SW - 2 * MARGIN - Inches(0.5),
+            Inches(0.75),
+            "This reframes the whole objection. \"Why not just add sensors?\" — you "
+            "should, and this says which ones. RippleTwin sits inside the capital "
+            "planning cycle, not just the operations budget.",
+            size=12.5, bold=True, color=WHITE)
+    footnote(s, "Validated directionally against measured localisation error (r = 0.37 across 24 source "
+                "stations, few episodes each). Simulated prototype result on synthetic data.")
 
     # ================================================== 14. roadmap
     s = slide_frame(pool, "Phased rollout", "Deliberately slow at the start, because trust is spent once")

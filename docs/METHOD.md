@@ -4,6 +4,75 @@ This document is the technical argument. It is written to be attacked.
 
 ---
 
+## 0. Relation to prior work — read this first
+
+**The blockage/starvation boundary is not our idea.** It is the **Turning Point
+Method**, published by Li, Chang and Ni in 2009, and it is one of the
+best-established data-driven bottleneck detection methods in manufacturing
+science. The 2023 systematic review of the field states the rule directly:
+
+> "The Turning Point Method proposed in (Li et al., 2009) identifies the
+> bottleneck station as the station that experiences a change (turning point),
+> i.e. a scenario where the blockage is higher than starvation should change to
+> a scenario where starvation is higher than the blockage."
+
+That is exactly the physics this project rests on, and we would rather cite it
+than be caught claiming it. The other dominant family is the **Active Period
+Method** (Roser, Nakano and Tanaka, 2001–2002), which names the process holding
+the longest uninterrupted active period.
+
+### So what is actually ours?
+
+Both published methods **scan the stations they can measure**. That is the
+crack this project lives in:
+
+> When the turning point falls inside a run of stations that have no telemetry,
+> the scan cannot stop there. It can only name the nearest station it can see.
+> The true source is not merely estimated poorly — it is **outside the method's
+> output space**.
+
+Measured on our line: with a hidden fault at S02, the Turning Point Method
+detects the disturbance reliably and names **S03** — the first instrumented
+station on the starved side of the gap. Exact-station accuracy: **0%**.
+RippleTwin resolves into the gap and names S02.
+
+Concretely, our contributions over the published methods are:
+
+| | Published TPM / APM | RippleTwin |
+|---|---|---|
+| Output space | instrumented stations only | **every station, instrumented or not** |
+| Decision rule | deterministic scan for a sign change | posterior over candidate positions, with uncertainty |
+| Distance | station adjacency | **buffer-capacity distance** — a 14-slot inter-zone buffer decouples far more than one slot |
+| Channels | blockage vs starvation compared | modelled separately, with their own amplitudes and length scales, because they are physically asymmetric |
+| Competing explanations | none | explicit `NULL` and `LINE_SUPPLY` hypotheses, so it can stay silent or blame supply |
+| Unidentifiable cases | always returns a station | **abstains** when two blind stations are structurally indistinguishable |
+| Hidden station state | — | **estimates the unmeasured station's cycle time** (~3% median error) |
+| Sensor layout | assumed | **recommends where the next sensor buys the most** |
+
+The Active Period Method's own documented limitation is "a very high data
+requirement" — it needs to know precisely when every process is active. That is
+the assumption we are relaxing.
+
+### Two things the same review says, which we rely on
+
+* **"None of the existing literature provides real-world validation of
+  methods."** Our synthetic-only validation is therefore the field norm, not a
+  peculiar weakness of this project — though it remains the first thing a pilot
+  must fix.
+* The review's own future-research section calls for exactly this shape of
+  system: a digital twin that "can automatically analyze the throughput
+  bottlenecks from the real-time data sets, predict the expected dynamics,
+  examine the different scenarios ... and prescribe actions", and which
+  "continuously evolve[s] using the real-time data of the production system and
+  shop floor engineers' feedback."
+
+A related modern line of work uses graph attention networks over line topology
+(e.g. BSTAN) to model station interactions. We deliberately did not go there:
+the propagation we need can be **derived** from buffer capacity, and a derived
+model is inspectable, needs no training data, and cannot drift. See §4.
+
+---
+
 ## 1. The claim
 
 > A vehicle assembly line does not need a sensor at every station to build a

@@ -46,7 +46,13 @@ from rippletwin.hitl.ledger import (  # noqa: E402
 )
 from rippletwin.recommend.engine import recommend_flow, recommend_quality  # noqa: E402
 from rippletwin.twin import genealogy as GN  # noqa: E402
+from rippletwin.models.baselines import (  # noqa: E402
+    apply_detection_rule,
+    calibrate_threshold,
+    turning_point_baseline,
+)
 from rippletwin.twin.pipeline import fit_context, infer, simulate  # noqa: E402
+from rippletwin.twin.placement import recommend_sensors  # noqa: E402
 from rippletwin.twin.propagate import (  # noqa: E402
     current_buffer_levels,
     defect_exposure,
@@ -67,7 +73,7 @@ def banner(text: str) -> None:
     print(f"\n{RULE}\n  {text}\n{RULE}")
 
 
-def step(n: int, text: str) -> None:
+def step(n, text: str) -> None:
     print(f"\n[{n}] {text}\n{THIN}")
 
 
@@ -220,6 +226,49 @@ def main() -> int:
                 print(f"    TRUE SOURCE          : "
                       f"{line.stations[true_station].station_id} "
                       f"[{line.stations[true_station].tier}]")
+
+    # ------------------------------------------------------- step 4b
+    if has_truth and line.stations[true_station].is_hidden:
+        step("4b", "AGAINST THE PUBLISHED METHOD (Li, Chang & Ni, 2009)")
+        cal_scored, _, _ = infer(ctx, calib)
+        thr = calibrate_threshold(
+            turning_point_baseline(cal_scored, line).frame, 0.01
+        )
+        tp = apply_detection_rule(turning_point_baseline(scored, line).frame, thr)
+        wt = scored.groupby("window").agg(
+            t_mid_s=("t_depart_s_min", "min")
+        ).reset_index()
+        tp = tp.merge(wt, on="window")
+        tp_act = tp[
+            tp["detected"]
+            & (tp["t_mid_s"] >= t_active0)
+            & (tp["t_mid_s"] <= t_active1)
+        ]
+        print("  The blocked/starved boundary is NOT our idea. It is the Turning")
+        print("  Point Method, and it is one of the best-established bottleneck")
+        print("  detection methods in manufacturing science. So we ran it, at the")
+        print("  same calibrated false-alarm rate.\n")
+        if len(tp_act):
+            named = int(tp_act["top_station"].mode().iloc[0])
+            print(f"  Turning Point Method : detected in {len(tp_act)} windows, "
+                  f"names {line.stations[named].station_id}  "
+                  f"-> exact-station accuracy "
+                  f"{(tp_act['top_station'] == true_station).mean() * 100:.0f}%")
+        if len(det):
+            act = det[(det["t_mid_s"] >= t_active0) & (det["t_mid_s"] <= t_active1)]
+            if len(act):
+                print(f"  RippleTwin           : detected in {len(act)} windows, "
+                      f"names {act['top_station_id'].mode().iloc[0]}  "
+                      f"-> exact-station accuracy "
+                      f"{(act['top_station'] == true_station).mean() * 100:.0f}%")
+        print(f"\n  TRUE SOURCE          : "
+              f"{line.stations[true_station].station_id} "
+              f"[{line.stations[true_station].tier}]")
+        print("\n  The published method detects the disturbance perfectly well. It")
+        print("  lands on the first INSTRUMENTED station past the sensor gap,")
+        print("  because it scans the stations it can measure -- a turning point")
+        print("  inside a gap is outside its output space. That gap is the whole")
+        print("  contribution of this project.")
 
     # ---------------------------------------------------------------- step 5
     step(5, "THE SECOND PATH: DEFECT ATTRIBUTION BY VEHICLE GENEALOGY")
@@ -459,6 +508,28 @@ def main() -> int:
         })
     else:
         summary.update({"detected": False, "correct_silence": bool(scen.expect_no_alert)})
+
+    # ------------------------------------------------------------ placement
+    step(10, "WHERE THE NEXT SENSOR SHOULD GO")
+    rec = recommend_sensors(line, n_recommend=4)
+    print("  \"Why not just instrument the blind stations?\" -- you should. The")
+    print("  question is which ones buy the most. This needs NO production data,")
+    print("  so a plant can run it before committing to a retrofit.\n")
+    print("  rank  station  zone    value   currently confusable with")
+    for _, r in rec.iterrows():
+        print(f"  {int(r['rank']):>4}  {r['station_id']:<7} {r['zone']:<7} "
+              f"{r['total_gain']:>5.2f}   {r['unlocks']}")
+    adj = [
+        (line.stations[i].station_id, line.stations[i + 1].station_id)
+        for i in line.hidden_indices
+        if (i + 1) in set(line.hidden_indices)
+    ]
+    if adj:
+        print(f"\n  {', '.join(a + '/' + b for a, b in adj)} are ADJACENT blind "
+              f"stations. With no sensor")
+        print("  between them their signatures are ~97% alike, so no amount of data")
+        print("  separates them -- the twin reports them as a group and abstains.")
+        print("  Breaking up an adjacent pair beats instrumenting an isolated one.")
 
     banner("DEMO COMPLETE")
     print("  Everything above is a SIMULATED PROTOTYPE RESULT on synthetic data.")

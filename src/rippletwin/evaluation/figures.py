@@ -20,12 +20,14 @@ import pandas as pd  # noqa: E402
 
 PALETTE = {
     "RippleTwin": "#7500c0",
+    "B3_TurningPoint": "#d62728",
     "B2_observed_only_twin": "#1f77b4",
     "B1_IsolationForest": "#ff7f0e",
     "B0_SPC_observed": "#7f7f7f",
 }
 LABEL = {
     "RippleTwin": "RippleTwin (shadow-sensing)",
+    "B3_TurningPoint": "B3 Turning Point Method (Li et al. 2009)",
     "B2_observed_only_twin": "B2 observed-only twin",
     "B1_IsolationForest": "B1 anomaly detection",
     "B0_SPC_observed": "B0 SPC on sensors",

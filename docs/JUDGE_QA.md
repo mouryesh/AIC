@@ -31,11 +31,19 @@ sell throughput value to an unconstrained plant.
 **4. Why not just install more sensors?**
 Often you should, and we do not argue otherwise. But the brief notes retrofits
 are limited to "a small number of scheduled maintenance windows per year" — the
-constraint is calendar as much as cost. The stronger answer: **our coverage
-experiment is a sensor-placement tool.** It shows which blind stations inference
-already covers and which genuinely need instrumenting, so the retrofit budget
-goes where it buys something. We are not competing with that budget; we are
-telling you how to spend it.
+constraint is calendar as much as cost.
+
+The stronger answer is that **we tell you where to put them.**
+`rippletwin.twin.placement` ranks every blind station by how much instrumenting
+it would improve localisation across the line, computed from the propagation
+model with no production data required — so a plant can run it *before*
+committing to a retrofit. On our line it correctly identifies that the two
+adjacent blind pairs (S32/S33 and S37/S38) are ~0.97 confusable with each other
+and should be broken up first, while an isolated blind station is already
+largely resolvable.
+
+That reframes the sale entirely: RippleTwin is not competing with the
+instrumentation budget, it is directing it.
 
 **5. Who buys it?**
 Plant Manager / Manufacturing Engineering, sponsored by Head of Manufacturing
@@ -46,6 +54,50 @@ Digital. The decision is not "should we have a twin" — they have one — it is
 Under the illustrative assumptions, around one month. That figure is
 **ILLUSTRATIVE** and rests on the margin assumption in Q3. Treat the mechanism
 as demonstrated and the money as unvalidated.
+
+---
+
+## Prior art — the questions a manufacturing expert will ask
+
+**0a. Isn't this just the Turning Point Method?**
+The mechanism is, and we cite it as such: Li, Chang & Ni (2009) define the
+bottleneck as the station where blockage-exceeds-starvation flips to
+starvation-exceeds-blockage. That is our physics, it is not our idea, and we
+implement it as a baseline rather than quietly reinventing it.
+
+What is ours is what happens when **the turning point falls in a gap with no
+sensors**. The published method scans the stations it can measure, so it can
+only name the nearest one it can see — the true source is outside its output
+space. On our line, with a hidden fault at S02, the Turning Point Method detects
+the disturbance reliably and names **S03**, the first instrumented station past
+the gap: **0% exact**. RippleTwin resolves into the gap.
+
+We also replace the deterministic scan with a posterior over candidate
+positions, weight distance by **buffer capacity** rather than adjacency, model
+blocking and starving as separate asymmetric channels, add competing `NULL` and
+`LINE_SUPPLY` hypotheses so it can stay silent, **abstain** when two blind
+stations are structurally indistinguishable, estimate the unmeasured station's
+cycle time, and use the same model to say where the next sensor should go.
+
+**0b. What about the Active Period Method?**
+The other dominant family (Roser et al.). Its own documented limitation is "a
+very high data requirement" — it must know precisely when every process is
+active. That assumption is exactly what we are relaxing, so it is not applicable
+to the case this project is about.
+
+**0c. Why not a graph neural network, like BSTAN?**
+Because the propagation can be *derived* from buffer capacity rather than
+learned. A derived model needs no training data, a plant engineer can check it
+on paper, and it cannot drift. A GNN would be the right call for non-serial
+topology — parallel paths and rework loops — and that is named in our
+limitations rather than hidden.
+
+**0d. You only validated on synthetic data.**
+True, and it is the first thing a pilot must fix. Worth knowing, though: the
+2023 systematic review of this field states that **"None of the existing
+literature provides real-world validation of methods."** We are at the field's
+norm, not below it — and unlike most of that literature we ship the code and the
+seeds, so anyone can reproduce every number here.
 
 ---
 
