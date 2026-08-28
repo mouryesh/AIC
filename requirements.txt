@@ -6,3 +6,7 @@ pyyaml>=6.0
 plotly>=5.18
 streamlit>=1.30
 pytest>=7.4
+
+# Optional: enables the LLM phrasing backend in rippletwin/copilot/ask.py.
+# The copilot works fully offline without it (deterministic template backend).
+# anthropic>=0.40

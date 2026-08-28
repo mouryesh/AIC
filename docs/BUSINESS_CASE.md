@@ -124,7 +124,7 @@ rate and stays there. It is not a claim about any real plant's reaction time.
 
 The comparison is not only cost, it is calendar.
 
-| | Retrofit every blind station | RippleTwin |
+| | Retrofit every blind station (PLC-integrated) | RippleTwin |
 |---|---|---|
 | Capital | 10 stations x $18,000 = **$180,000** | **$150,000** year 1 |
 | When it can be installed | scheduled maintenance windows only | against existing data |
@@ -145,6 +145,57 @@ the stations where it actually buys something.
 
 That reframes the sale. RippleTwin is not competing with the instrumentation
 budget; it is telling you how to spend it.
+
+### 5a. The $18,000 figure is the expensive way to retrofit a station — say so
+
+**ILLUSTRATIVE ASSUMPTION, correction.** $18,000/station assumes a
+PLC-integrated retrofit: wiring into the control cabinet, new I/O points,
+commissioning. That is a real number for that scope, but it is not the only
+way to get blocked/starved-equivalent telemetry out of a legacy station, and
+presenting it as the only option overstates RippleTwin's cost advantage in a
+way that would not survive a plant engineer's first question.
+
+**Non-invasive current-clamp monitoring** — a clamp-on CT sensor around the
+motor's power lead, no PLC program touched, no cabinet opened — is a
+well-established alternative for exactly this use case, and runs
+**roughly $200–$2,000 per machine installed**, with data flowing in minutes
+rather than weeks because there is no control-system integration to
+commission.[^clamp]
+
+| Option | Cost / station | Integration | What it recovers |
+|---|---|---|---|
+| PLC-integrated retrofit | **$18,000** | control-cabinet wiring, new I/O, commissioning | full RICH-tier telemetry: cycle time, blocked/starved, torque/vibration/temperature |
+| Non-invasive clamp-on retrofit | **$200–$2,000** | clip a CT sensor on the power lead; no PLC change | a running/idle signal close to BASIC-tier blocked/starved — motor current drop approximates station idle, current spike approximates blocked/jammed |
+| RippleTwin | **$150,000 year 1** (whole line) | reads data already collected | infers the same station from its instrumented neighbours; no new hardware |
+
+This changes the honest version of the pitch. It is **not** "sensors cost
+$180,000, we cost $150,000." It is:
+
+> A plant can very likely get approximate BASIC-tier signal onto most of its
+> blind stations for **$2,000–$20,000 total** across 10 stations using
+> non-invasive clamps — cheaper than we originally assumed, and without
+> waiting for a maintenance window. RippleTwin's case does not rest on sensors
+> being expensive. It rests on two things the clamp-on route does not solve:
+> **(1)** clamp-on current draw is a coarser, noisier proxy for
+> blocked/starved than a PLC-derived signal — it still needs calibration and
+> does not recover torque/vibration/temperature at all, and **(2)** even a
+> fully clamp-on-instrumented line still has to interpret that data; RippleTwin
+> is the layer that turns per-station signal, however it is collected, into a
+> located constraint, a forecast and a recommendation. A plant instrumenting
+> cheaply still benefits from not having to build that layer itself.
+
+**What we have not done:** validated that clamp-on current draw actually
+produces a usable blocked/starved-equivalent signal on *this* line's motors —
+that is a real engineering question (load type, duty cycle, sensor placement
+all affect it) and belongs in a Phase 0 assessment, not asserted here.
+
+[^clamp]: Cost range compiled from vendor and industry sourcing on
+    non-invasive current-clamp / CT-based machine monitoring (2026), e.g.
+    Guidewheel's comparison of PLC monitoring vs. clamp-on current sensors
+    (<https://www.guidewheel.com/blog/plc-monitoring-vs-current-sensors>) and
+    retrofit-IIoT cost guides citing $200–$2,000 per asset for clamp-based
+    retrofits. Treat as an **ILLUSTRATIVE ASSUMPTION** sourced from public
+    vendor material, not a quote for this line.
 
 ---
 
