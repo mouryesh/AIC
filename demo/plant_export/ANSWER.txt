@@ -1,0 +1,10 @@
+GROUND TRUTH -- the pilot never reads this file.
+
+Injected fault : station index 31 (S32)
+Tier           : MANUAL  (no telemetry -- absent from the export)
+Kind           : SLOWDOWN, 1.35x processing time
+Label          : progressive fixture binding
+Active         : 72.0h to 86.0h into the run
+Ramp           : 30 min
+
+The export contains no row from this station. Naming it is the task.

@@ -272,6 +272,78 @@ PYTHONPATH=src python -m rippletwin.data.generate --scenario S1_HIDDEN_BOTTLENEC
 
 ---
 
+## Run it on a real plant's data
+
+Everything above can be checked only by us, on our simulator, on our terms. That
+is the position most industrial prototypes are in when they are presented, and
+it is why so many never get past the presentation: a plant cannot verify the
+claim without first funding an integration.
+
+The pilot path inverts that. A plant exports data it already has, fills in a
+mapping file with **its own column names**, and runs one command.
+
+```bash
+python -m rippletwin.pilot --emit-template mapping.yaml   # fill in your columns
+python -m rippletwin.pilot --export mapping.yaml
+```
+
+It reports, in order: whether the export is usable at all, the line topology it
+infers and **the assumptions an engineer has to confirm**, a Phase 0 capability
+verdict, the findings, and work orders with an owner and a cost of waiting.
+
+No credentials, no network, no OT change, no port opened. A file drop is
+deliberately the first integration step, because it is the one a plant can
+authorise without a project.
+
+### What it reads
+
+Two shapes, because plants have one or the other:
+
+| Shape | Files | Notes |
+|---|---|---|
+| **A — state log + VIN scans** | PLC/OEE state *changes*, MES traceability reads | The common case. We do the interval join. |
+| **B — pre-joined telemetry** | one per-unit dwell table | If a reporting layer already computes it. |
+
+Shape A matters more than it looks. A historian does not hold "unit 412 was
+blocked at S07 for 18.3s" — it holds a state-change log and, separately, a VIN
+scan log. Joining those into per-unit durations is
+[`ingest/states.py`](src/rippletwin/ingest/states.py), and it reconstructs the
+simulator's own dwell times **exactly** (max error 2e-9 s over 191,968 rows).
+
+### Try it without a plant
+
+```bash
+python demo/make_plant_export.py                              # historian-shaped export
+python -m rippletwin.pilot --export demo/plant_export/mapping.yaml
+```
+
+This writes what an OEE historian and an MES view would actually hold — awkward
+column names (`Equipment`, `SerialNo`, `EventTime`), ISO timestamp strings, no
+pre-joined dwell — and injects a 35% slowdown at a **station with no telemetry**,
+which is then absent from the export entirely. Naming it is the task.
+
+The ground truth is written to `demo/plant_export/ANSWER.txt`, which the pilot
+never reads, so the result can be checked rather than taken on trust.
+
+### What running it against a plant-shaped export taught us
+
+Five bugs surfaced that the simulator path could never have exposed. **None of
+them raised an exception** — each produced a confident wrong answer, which is
+the failure mode that actually costs a system the floor's trust:
+
+| Bug | Symptom | Cause |
+|---|---|---|
+| Per-file time normalisation | 8 s mean error on `blocked_s`; localisation moved two stations | Each file normalised to *its own* first timestamp, so the state log and VIN log were silently knocked out of alignment |
+| `proc_time` derivation | Inflated by exactly the starvation | Occupancy is `starved + processing + blocked`; only `blocked` was subtracted |
+| Blind-station placement | Named station 19 when the truth was 31 | Blind stations spread evenly instead of at their real positions |
+| Work orders | Zero raised, silently | A `hasattr` guard turned a missing attribute into "no findings" |
+| Achieved-rate calculation | 5.7 units/h against a 60 s takt, so every forecast read as non-binding | Measured the line's traversal time, not the window's duration |
+
+Two of these are now the reason the mapping file asks for `line.stations` — an
+ordered list of **every** station, instrumented or not. It is the single
+highest-value thing a plant can supply, it is answerable from an equipment list
+without a survey, and without it the blind stations have to be guessed at.
+
 ## Architecture
 
 ```

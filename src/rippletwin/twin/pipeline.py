@@ -16,6 +16,7 @@ import pandas as pd
 from ..factory.simulator import LineSimulator, SimResult
 from ..factory.scenarios import Scenario
 from ..factory.topology import LineTopology
+from ..ingest.plant_data import PlantData
 from ..features.baseline import NominalBaseline
 from ..features.windows import WindowSpec, aggregate_windows, attach_environment
 from .shadow import ShadowConfig, ShadowSensor
@@ -43,18 +44,43 @@ def simulate(line: LineTopology, scenario: Scenario, seed: int) -> SimResult:
     )
 
 
+def as_plant_data(source) -> PlantData:
+    """Coerce whatever a caller has into the observable-only view.
+
+    This is the *only* place a ``SimResult`` may enter the inference path, and
+    it leaves ground truth behind at the door: everything downstream is typed to
+    ``PlantData``, which has no field that could hold the answer. A historian
+    export and a simulated run are indistinguishable past this line, which is
+    what makes the pilot path testable before real data exists.
+    """
+    if isinstance(source, PlantData):
+        return source
+    if hasattr(source, "as_plant_data"):
+        return source.as_plant_data()
+    raise TypeError(
+        f"expected PlantData or SimResult, got {type(source).__name__}"
+    )
+
+
 def build_windows(
-    res: SimResult, line: LineTopology, spec: WindowSpec
+    source, line: LineTopology, spec: WindowSpec
 ) -> pd.DataFrame:
-    """Aggregate a run's *observed* telemetry into scored-ready windows."""
-    w = aggregate_windows(res.telemetry, res.vehicles, line, spec)
-    return attach_environment(w, res.environment)
+    """Aggregate observed telemetry into scored-ready windows.
+
+    Ambient conditions are optional in the data contract, so they are attached
+    only when the plant actually supplied them.
+    """
+    data = as_plant_data(source)
+    w = aggregate_windows(data.telemetry, data.vehicles, line, spec)
+    if data.has_environment:
+        w = attach_environment(w, data.environment)
+    return w
 
 
 def fit_context(
     line: LineTopology,
-    nominal: SimResult,
-    calibration_run: SimResult | None = None,
+    nominal,
+    calibration_run=None,
     spec: WindowSpec | None = None,
     shadow_cfg: ShadowConfig | None = None,
     target_window_fpr: float = 0.01,
@@ -69,6 +95,7 @@ def fit_context(
     particular noise.
     """
     spec = spec or WindowSpec.for_line(line)
+    nominal = as_plant_data(nominal)
     w = build_windows(nominal, line, spec)
     baseline = NominalBaseline.fit(w, nominal.telemetry, line)
     ctx = TwinContext(
@@ -95,8 +122,8 @@ def fit_context(
     return ctx
 
 
-def infer(ctx: TwinContext, res: SimResult) -> tuple:
-    """Run the full inference path on a simulated run.
+def infer(ctx: TwinContext, res) -> tuple:
+    """Run the full inference path on observable data.
 
     Returns ``(scored_windows, shadow_frame, sensor)``. The sensor is returned so
     callers can reach its per-window ``ShadowResult`` objects for explanation.

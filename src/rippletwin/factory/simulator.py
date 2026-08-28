@@ -114,6 +114,28 @@ class SimResult:
     defects: pd.DataFrame
     meta: dict = field(default_factory=dict)
 
+    def as_plant_data(self):
+        """Project this run down to what a real plant could actually observe.
+
+        The inference path consumes ``PlantData``, never ``SimResult``, so the
+        ground-truth tables above are not merely unused by the model -- they are
+        unreachable from it. That turns "the model never sees the answer" from a
+        convention maintained by discipline into a property of the types.
+
+        It also means a simulated run and a historian export enter the twin
+        through exactly the same door, which is what makes the pilot path
+        testable before anyone has real data.
+        """
+        from ..ingest.plant_data import PlantData
+
+        return PlantData.from_frames(
+            telemetry=self.telemetry,
+            vehicles=self.vehicles,
+            inspections=self.inspections,
+            environment=self.environment,
+            meta={**self.meta, "source": "simulator"},
+        )
+
 
 class LineSimulator:
     """Simulates production over a horizon, with optional injected disturbances."""

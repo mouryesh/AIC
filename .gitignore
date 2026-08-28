@@ -14,3 +14,8 @@ results/_smoke/
 results/full_run.log
 *.log
 .streamlit/secrets.toml
+
+# Generated plant export (24 MB, deterministic from a seed).
+# Regenerate with: python demo/make_plant_export.py
+# mapping.yaml and ANSWER.txt are kept so the shape is readable without running it.
+demo/plant_export/*.csv
