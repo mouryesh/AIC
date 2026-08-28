@@ -234,3 +234,46 @@ def discover_topology(telemetry: pd.DataFrame) -> pd.DataFrame:
         "median_t_depart_s": med.to_numpy(),
     })
     return out
+
+
+def state_log_coverage(
+    closed_states: pd.DataFrame,
+    scans: pd.DataFrame,
+    station_col: str = "station",
+) -> pd.DataFrame:
+    """How much of each station's producing period the state log actually covers.
+
+    Why this check exists
+    ---------------------
+    A truncated or partially-exported state log does not announce itself. Every
+    VIN scan still joins; the missing intervals simply contribute no blocked or
+    starved time, and a station with zero flow loss looks *healthy*. Data loss
+    is therefore indistinguishable from good news, and the twin will localise
+    confidently against whatever fragment survived.
+
+    Found by feeding the pilot a state log truncated to 6% of its rows: the
+    verdict came back USABLE with no warnings, and work orders named the wrong
+    station. Nothing raised an exception at any point.
+
+    A PLC emits state transitions continuously while a station is producing, so
+    the span of its state log should match the span of its VIN reads. The ratio
+    below is that comparison, per station. It cannot detect a log that is
+    uniformly thinned, only one that is truncated or gapped -- which is the
+    common export failure.
+    """
+    if closed_states.empty or scans.empty:
+        return pd.DataFrame(columns=[station_col, "scan_span_s",
+                                     "state_span_s", "coverage"])
+    st = closed_states.groupby(station_col, observed=True).agg(
+        state_lo=("t0", "min"), state_hi=("t1", "max")
+    )
+    sc = scans.groupby(station_col, observed=True)["t_s"].agg(
+        scan_lo="min", scan_hi="max"
+    )
+    j = sc.join(st, how="left")
+    j["scan_span_s"] = j["scan_hi"] - j["scan_lo"]
+    j["state_span_s"] = (j["state_hi"] - j["state_lo"]).fillna(0.0)
+    j["coverage"] = np.where(
+        j["scan_span_s"] > 0, j["state_span_s"] / j["scan_span_s"], np.nan
+    )
+    return j.reset_index()[[station_col, "scan_span_s", "state_span_s", "coverage"]]

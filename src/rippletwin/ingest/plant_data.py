@@ -354,6 +354,32 @@ class PlantData:
                   "no buffer occupancy",
                   "optional; buffer fill will be unavailable")
 
+        # State-log completeness. Missing state rows contribute no blocked or
+        # starved time, so a truncated export looks like a HEALTHY line rather
+        # than a broken one -- the twin then localises confidently against
+        # whatever fragment survived. Found by truncating a state log to 6% of
+        # its rows: verdict USABLE, no warnings, work orders naming the wrong
+        # station.
+        cov = self.meta.get("state_log_coverage")
+        if cov is not None and len(cov):
+            med = float(cov["coverage"].median())
+            worst = int((cov["coverage"] < 0.5).sum())
+            r.stats["state_log_coverage"] = round(med, 3)
+            if med < 0.5:
+                r.add(BLOCKER, "STATE_LOG_TRUNCATED",
+                      f"the state log spans only {med:.0%} of the period the VIN "
+                      f"reads cover",
+                      "missing state rows read as zero flow loss, so the line "
+                      "would look healthy -- re-export the full state history")
+            elif med < 0.9:
+                r.add(WARNING, "STATE_LOG_GAPS",
+                      f"the state log spans {med:.0%} of the VIN-read period",
+                      "gaps understate blocked/starved and will suppress findings")
+            elif worst:
+                r.add(WARNING, "STATE_LOG_GAPS_PER_STATION",
+                      f"{worst} station(s) have under 50% state-log coverage",
+                      "those stations contribute little evidence to localisation")
+
         if not self.has_quality_path:
             r.add(NOTE, "NO_INSPECTIONS",
                   "no gate results with defect codes",
