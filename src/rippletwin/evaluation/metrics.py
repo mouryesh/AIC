@@ -260,6 +260,113 @@ def summarise(rows: List[dict], by: List[str]) -> pd.DataFrame:
     return g
 
 
+def true_bottleneck_onset(line: LineTopology, truth: "EpisodeTruth") -> Optional[float]:
+    """The simulation time at which the injected disturbance's ground-truth
+    processing time first exceeds takt -- i.e. the moment the constraint
+    genuinely starts limiting output, from the ``Disturbance`` object itself
+    rather than from an observed shortfall.
+
+    This is a tighter, model-internal reference than
+    ``production_board_moment`` (which needs a *sustained* line-level
+    shortfall to fire, and often never fires at all -- see RESULTS.md §4).
+    It exists specifically to evaluate a predictive layer that claims to warn
+    *before* a constraint binds: "before what, precisely" needs an answer
+    that does not itself depend on the detector being evaluated.
+
+    Only defined for SLOWDOWN/COMBINED disturbances, which act on processing
+    time. Uses the station's nominal ``base_cycle_s`` as the deterministic
+    reference (per-vehicle noise averages out around it) -- the same
+    quantity ``RippleForecast.is_binding`` compares an *estimate* of against
+    takt at evaluation time.
+    """
+    if not truth.has_fault or truth.kind not in ("SLOWDOWN", "COMBINED"):
+        return None
+    if truth.station is None or truth.magnitude <= 1.0:
+        return None
+    base_cycle = float(line.stations[truth.station].base_cycle_s)
+    takt = float(line.takt_s)
+    health_needed = takt / base_cycle
+    if health_needed <= 1.0:
+        # Already at or above takt at zero disturbance intensity: binds
+        # immediately once the disturbance starts.
+        return float(truth.t_start_s)
+    intensity_needed = (health_needed - 1.0) / (truth.magnitude - 1.0)
+    if intensity_needed > 1.0:
+        return None  # magnitude too weak to ever bind, even fully ramped in
+    intensity_needed = max(0.0, intensity_needed)
+    return float(truth.t_start_s + intensity_needed * truth.ramp_s)
+
+
+def evaluate_early_warning(
+    pred: pd.DataFrame,
+    truth: "EpisodeTruth",
+    true_onset_s: Optional[float],
+) -> dict:
+    """Score the predictive layer (``twin.predict``) on one episode.
+
+    ``pred`` is the output of ``twin.predict.run_predictor``: one row per
+    window with ``state``, ``t_mid_s`` and ``station``. A prediction only
+    counts if it is *correctly localised* (within 1 station of the true
+    source), for the same reason ``evaluate_localization`` requires it: an
+    early warning naming the wrong station has not bought anyone real lead
+    time.
+
+    Lead time is reported against ``true_onset_s`` (see
+    ``true_bottleneck_onset``) when available. Missed and false-alarm cases
+    are reported explicitly, not folded into an average that would hide them.
+    """
+    from .metrics import EpisodeTruth  # local import avoids a cycle at module load
+
+    if pred.empty:
+        return {}
+
+    elevated = pred[pred["state"].isin(("WATCH", "PREDICTED_CONSTRAINT", "ACTIVE_BOTTLENECK"))]
+
+    if not truth.has_fault:
+        # No fault this episode: any elevated state anywhere is a false alarm.
+        return {
+            "n_windows": int(len(pred)),
+            "false_alarm": float(len(elevated) > 0),
+            "n_false_alarm_windows": int(len(elevated)),
+        }
+
+    correctly_localised = elevated[
+        elevated["station"].notna()
+        & (np.abs(elevated["station"].astype(float) - truth.station) <= 1)
+    ]
+    # Restrict to the episode's own fault window (plus a little slack before
+    # onset for the pre-alarm to count) so a WATCH raised during an unrelated
+    # part of a long run isn't credited to this fault.
+    if len(correctly_localised):
+        lo = truth.t_start_s - 3600.0
+        hi = truth.t_end_s
+        correctly_localised = correctly_localised[
+            (correctly_localised["t_mid_s"] >= lo) & (correctly_localised["t_mid_s"] <= hi)
+        ]
+
+    if correctly_localised.empty:
+        return {
+            "n_windows": int(len(pred)),
+            "missed": 1.0,
+            "false_alarm": 0.0,
+            "lead_time_min": np.nan,
+        }
+
+    first_t = float(correctly_localised["t_mid_s"].min())
+    out = {
+        "n_windows": int(len(pred)),
+        "missed": 0.0,
+        "false_alarm": 0.0,
+        "first_warning_t_s": first_t,
+    }
+    if true_onset_s is not None:
+        out["lead_time_min"] = (true_onset_s - first_t) / 60.0
+        out["true_onset_s"] = true_onset_s
+    else:
+        out["lead_time_min"] = np.nan
+    return out
+
+
 def cycle_time_error(
     inferred_s: Optional[float], passes: pd.DataFrame, station: int,
     v_start: int, v_end: int,
