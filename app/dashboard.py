@@ -42,6 +42,7 @@ from rippletwin.hitl.ledger import (  # noqa: E402
 )
 from rippletwin.recommend.engine import recommend_flow  # noqa: E402
 from rippletwin.twin import genealogy as GN  # noqa: E402
+from rippletwin.twin import predict as PR  # noqa: E402
 from rippletwin.twin.pipeline import fit_context, infer, simulate  # noqa: E402
 from rippletwin.twin.placement import ambiguity, recommend_sensors  # noqa: E402
 from rippletwin.twin.propagate import current_buffer_levels, forecast_ripple  # noqa: E402
@@ -84,15 +85,17 @@ def run_scenario(scenario_key: str, _line, _ctx, _qbase):
         "S3_NORMAL": SC.scenario_normal_variation,
         "S4_OBSERVED_STATION": SC.scenario_observed_station,
         "S5_VARIANT_AND_SUPPLY": SC.scenario_variant_shift,
+        "S6_EARLY_WARNING": SC.scenario_gradual_bottleneck,
     }
     scen = builders[scenario_key](_line)
     res = simulate(_line, scen, seed=DEMO_SEED)
     scored, shadow, sensor = infer(_ctx, res)
+    pred = PR.run_predictor(shadow, _line, res.telemetry, scored, _ctx.shadow_cfg)
     wb = GN.window_bounds_from(scored)
     qs = GN.quality_state(_line, GN.explode_defects(res.inspections), wb, _qbase,
                           pool_vehicles=200)
     qa = GN.quality_alerts(qs) if len(qs) else qs
-    return scen, res, scored, shadow, sensor, qa
+    return scen, res, scored, shadow, pred, sensor, qa
 
 
 # ------------------------------------------------------------------- visuals
@@ -199,7 +202,17 @@ def posterior_chart(line, sr):
     return fig
 
 
-def risk_timeline(shadow, truth_row=None):
+STATE_COLOR = {
+    PR.STATE_NORMAL: "#9aa0a6",
+    PR.STATE_RECOVERING: "#4c9be8",
+    PR.STATE_DEGRADING: "#f2b705",
+    PR.STATE_WATCH: "#f2984a",
+    PR.STATE_PREDICTED_CONSTRAINT: "#e0632f",
+    PR.STATE_ACTIVE_BOTTLENECK: "#d63a3a",
+}
+
+
+def risk_timeline(shadow, truth_row=None, cfg=None, pred=None):
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=shadow["t_mid_s"] / 3600, y=shadow["llr"], mode="lines",
@@ -211,6 +224,19 @@ def risk_timeline(shadow, truth_row=None):
             x=det["t_mid_s"] / 3600, y=det["llr"], mode="markers",
             name="alert raised", marker=dict(color="#d63a3a", size=5),
         ))
+    if cfg is not None:
+        fig.add_hline(y=cfg.detect_llr, line_dash="dash", line_color="#d63a3a",
+                       annotation_text="detect threshold", annotation_position="top right")
+        fig.add_hline(y=cfg.watch_llr, line_dash="dot", line_color="#f2984a",
+                       annotation_text="watch threshold (earlier, looser)",
+                       annotation_position="bottom right")
+    if pred is not None and len(pred):
+        elevated = pred[pred["state"] != PR.STATE_NORMAL]
+        for _, r in elevated.iterrows():
+            fig.add_vrect(
+                x0=r["t_mid_s"] / 3600 - 0.02, x1=r["t_mid_s"] / 3600 + 0.02,
+                fillcolor=STATE_COLOR.get(r["state"], "#9aa0a6"), opacity=0.25, line_width=0,
+            )
     if truth_row is not None:
         fig.add_vrect(
             x0=truth_row["t_start_s"] / 3600, x1=truth_row["t_end_s"] / 3600,
@@ -244,12 +270,11 @@ view = st.sidebar.radio(
 )
 
 _SCENARIOS = ["S1_HIDDEN_BOTTLENECK", "S2_HIDDEN_QUALITY", "S3_NORMAL",
-              "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY"]
+              "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY", "S6_EARLY_WARNING"]
 _s = _qp.get("scenario", "")
 scenario_key = st.sidebar.selectbox(
     "Scenario",
-    ["S1_HIDDEN_BOTTLENECK", "S2_HIDDEN_QUALITY", "S3_NORMAL",
-     "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY"],
+    _SCENARIOS,
     index=_SCENARIOS.index(_s) if _s in _SCENARIOS else 0,
     format_func=lambda k: {
         "S1_HIDDEN_BOTTLENECK": "S1 - hidden bottleneck (no sensor)",
@@ -257,10 +282,11 @@ scenario_key = st.sidebar.selectbox(
         "S3_NORMAL": "S3 - normal variation (should stay quiet)",
         "S4_OBSERVED_STATION": "S4 - fault at an instrumented station",
         "S5_VARIANT_AND_SUPPLY": "S5 - mix change + supply delay (not a fault)",
+        "S6_EARLY_WARNING": "S6 - gradual ramp (early-warning demo)",
     }[k],
 )
 
-scen, res, scored, shadow, sensor, qa = run_scenario(scenario_key, line, ctx, qbase)
+scen, res, scored, shadow, pred, sensor, qa = run_scenario(scenario_key, line, ctx, qbase)
 
 truth_rows = res.disturbances[res.disturbances["kind"] != "MATERIAL_DELAY"] \
     if len(res.disturbances) else res.disturbances
@@ -323,6 +349,39 @@ det = shadow[shadow["detected"]]
 if view == "Floor supervisor":
     st.title("Floor supervisor")
     st.caption("This shift. What is happening now, and what to do about it.")
+
+    if len(pred):
+        rank = pred["state"].map(PR.state_rank)
+        peak_idx = rank.idxmax()
+        peak = pred.loc[peak_idx]
+        st.subheader("Predicted bottleneck risk")
+        if peak["state"] == PR.STATE_NORMAL:
+            st.success(
+                "No elevated risk this run — the twin's risk trajectory never left "
+                "NORMAL."
+            )
+        else:
+            pk1, pk2, pk3, pk4 = st.columns(4)
+            pk1.metric("Peak state reached", peak["state"])
+            pk1.caption(
+                f"at {peak['station_id']}" if pd.notna(peak["station_id"]) else ""
+            )
+            pk2.metric("Risk", f"{peak['risk']:.2f}")
+            pk3.metric(
+                "Time-to-impact at peak",
+                f"{peak['time_to_impact_min']:.0f} min"
+                if pd.notna(peak["time_to_impact_min"])
+                else "n/a (binding, or no rising trend)",
+            )
+            pk4.metric("Confidence", f"{peak['confidence'] * 100:.0f}%")
+            st.caption(
+                "State ladder: NORMAL < DEGRADING < WATCH < PREDICTED_CONSTRAINT < "
+                "ACTIVE_BOTTLENECK, with RECOVERING re-entered once the trend "
+                "reverses. WATCH fires on a *looser* threshold than a confident "
+                "detection — the same evidence, read earlier, at a stated, "
+                "calibrated false-alarm cost (see docs/RESULTS.md)."
+            )
+        st.markdown("---")
 
     if len(det) == 0:
         c1, c2, c3 = st.columns(3)
@@ -474,8 +533,14 @@ if view == "Floor supervisor":
     st.caption("Diamonds = no sensor (state inferred). Circles = instrumented (measured).")
 
     st.subheader("Evidence over the shift")
-    st.plotly_chart(risk_timeline(shadow, truth_row if show_truth else None),
-                    use_container_width=True)
+    st.plotly_chart(
+        risk_timeline(shadow, truth_row if show_truth else None, cfg=ctx.shadow_cfg, pred=pred),
+        use_container_width=True)
+    st.caption(
+        "Shaded bands mark predicted-bottleneck states above NORMAL (see the "
+        "predicted-risk card above): amber = degrading/watch, orange/red = "
+        "predicted or active constraint, blue = recovering."
+    )
 
     if len(qa):
         q_al = qa[qa["quality_alert"]]

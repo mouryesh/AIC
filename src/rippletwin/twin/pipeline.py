@@ -84,6 +84,7 @@ def fit_context(
     spec: WindowSpec | None = None,
     shadow_cfg: ShadowConfig | None = None,
     target_window_fpr: float = 0.01,
+    watch_target_fpr: float = 0.05,
 ) -> TwinContext:
     """Fit the nominal baseline and calibrate the detector.
 
@@ -114,6 +115,7 @@ def fit_context(
         baseline.sigma_blocked,
         baseline.sigma_starved,
         target_window_fpr=target_window_fpr,
+        watch_target_fpr=watch_target_fpr,
     )
     # calibrate() mutates the config object the context holds, so the settings
     # propagate to every sensor built from this context.

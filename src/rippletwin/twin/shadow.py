@@ -102,6 +102,17 @@ class ShadowConfig:
     #: Stations on a coupled line are not independent observations; treating
     #: them as such inflates evidence by roughly 1/tau. Set by ``calibrate``.
     tau: float = 1.0
+    #: A looser, earlier pre-alarm threshold on the same LLR statistic, set by
+    #: ``calibrate`` at a higher target false-alarm rate than ``detect_llr``.
+    #: Used by ``twin.predict`` to raise a WATCH state before the line has
+    #: enough evidence to name a station -- the same statistic, a different
+    #: point on its own calibrated null distribution, not a separate detector.
+    watch_llr: float = 4.0
+    #: Standard deviation of the LLR statistic under the null (no-fault)
+    #: distribution, from the same calibration run. Used by ``twin.predict``
+    #: to size "is this trending up" as a multiple of the statistic's own
+    #: noise rather than an arbitrary slope constant.
+    llr_noise_std: float = 1.0
 
 
 # ------------------------------------------------------------------ propagation
@@ -476,6 +487,7 @@ class ShadowSensor:
         sigma_b: float,
         sigma_s: float,
         target_window_fpr: float = 0.01,
+        watch_target_fpr: float = 0.05,
     ) -> dict:
         """Set ``tau`` and ``detect_llr`` from disturbance-free reference data.
 
@@ -529,6 +541,20 @@ class ShadowSensor:
         llrs = llrs[np.isfinite(llrs)]
         thr = float(np.quantile(llrs, 1.0 - target_window_fpr)) if llrs.size else 8.0
         self.cfg.detect_llr = max(thr, 1.0)
+
+        # Watch threshold: the same statistic, read off the same null
+        # distribution, at a looser (higher) target false-alarm rate than
+        # detect_llr. Clamped strictly below detect_llr so WATCH can only ever
+        # fire earlier than, never instead of, a confident detection -- the
+        # quantiles already guarantee this in expectation, but the clamp holds
+        # under the small-sample noise of an empirical quantile.
+        watch_thr = (
+            float(np.quantile(llrs, 1.0 - watch_target_fpr)) if llrs.size else 4.0
+        )
+        self.cfg.watch_llr = float(
+            np.clip(min(watch_thr, self.cfg.detect_llr * 0.9), 0.25, self.cfg.detect_llr)
+        )
+        self.cfg.llr_noise_std = float(np.std(llrs)) if llrs.size >= 2 else 1.0
         self.reset()
 
         return {
@@ -538,6 +564,9 @@ class ShadowSensor:
             "tau": self.cfg.tau,
             "detect_llr": self.cfg.detect_llr,
             "target_window_fpr": target_window_fpr,
+            "watch_llr": self.cfg.watch_llr,
+            "watch_target_fpr": watch_target_fpr,
+            "llr_noise_std": self.cfg.llr_noise_std,
             "null_llr_median": float(np.median(llrs)) if llrs.size else float("nan"),
         }
 

@@ -182,12 +182,60 @@ def scenario_variant_shift(line: LineTopology, seed: int = 505) -> Scenario:
     )
 
 
+def scenario_gradual_bottleneck(line: LineTopology, seed: int = 606) -> Scenario:
+    """S6 -- a slow, gentle ramp designed to still look operational at T-10.
+
+    Every other scenario ramps a disturbance in over minutes
+    (``ramp_s`` of 2,400-3,000s, i.e. 40-50 minutes) and is scored only once
+    fully ramped in (``evaluate_localization``'s ``settle_fraction``). This
+    scenario exists for a different question: not "can the twin localise a
+    disturbance once it has arrived" but "does the twin's *risk trajectory*
+    rise perceptibly while the disturbance is still ramping in, before the
+    constraint has bound". The magnitude and ramp length are chosen so the
+    line does not become genuinely output-limited (``forecast.is_binding``)
+    until well after the ramp is under way -- there is a real window in which
+    the correct twin behaviour is DEGRADING/WATCH, not yet
+    PREDICTED_CONSTRAINT or silence.
+
+    ``t_start_s`` is placed so a 1,800s (30 minute) ramp lands the T-30/../T0
+    narrative from the master brief inside the scored region of an
+    1,800-vehicle run.
+    """
+    rng = np.random.default_rng(seed)
+    k = _pick(line, hidden=True, zone="BODY", rng=rng)
+    t_start = 40_000.0
+    ramp = 1_800.0  # 30 minutes: T-30 -> T0
+    return Scenario(
+        scenario_id="S6_EARLY_WARNING",
+        title="Gradual degradation at a hidden station -- still operational at T-10",
+        question="Does the twin's risk trajectory rise before the line is actually constrained?",
+        n_vehicles=2200,
+        disturbances=[
+            Disturbance(
+                station=k,
+                kind=EVENT_SLOWDOWN,
+                t_start_s=t_start,
+                t_end_s=t_start + ramp + 40_000.0,
+                magnitude=1.22,
+                ramp_s=ramp,
+                label="slow tool-wear ramp on a manual station",
+            )
+        ],
+        notes=(
+            f"true source = {line.stations[k].station_id} (MANUAL, no telemetry); "
+            f"ramp={ramp:.0f}s, so T-30..T0 of the master-brief narrative maps to "
+            f"[{t_start:.0f}, {t_start + ramp:.0f}]s simulation time"
+        ),
+    )
+
+
 FLAGSHIP_SCENARIOS: Dict[str, Callable[..., Scenario]] = {
     "S1_HIDDEN_BOTTLENECK": scenario_hidden_bottleneck,
     "S2_HIDDEN_QUALITY": scenario_hidden_quality,
     "S3_NORMAL": scenario_normal_variation,
     "S4_OBSERVED_STATION": scenario_observed_station,
     "S5_VARIANT_AND_SUPPLY": scenario_variant_shift,
+    "S6_EARLY_WARNING": scenario_gradual_bottleneck,
 }
 
 
