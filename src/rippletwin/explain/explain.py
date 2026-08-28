@@ -63,6 +63,12 @@ class Explanation:
     confidence: float
     evidence: List[EvidenceItem] = field(default_factory=list)
     caveats: List[str] = field(default_factory=list)
+    #: The second-best candidate and its posterior mass, when one exists --
+    #: the model's own uncertainty made visible, not just its top pick. See
+    #: README.md/docs/METHOD.md on preferring "likely contributor" /
+    #: "candidate root cause" language over causal certainty.
+    alternative_station_id: Optional[str] = None
+    alternative_probability: Optional[float] = None
 
     def as_dict(self) -> dict:
         d = {
@@ -77,6 +83,8 @@ class Explanation:
             "confidence_text": self.confidence_text,
             "evidence": [e.__dict__ for e in self.evidence],
             "caveats": list(self.caveats),
+            "alternative_station_id": self.alternative_station_id,
+            "alternative_probability": self.alternative_probability,
         }
         return d
 
@@ -93,6 +101,12 @@ class Explanation:
         ]
         for e in self.evidence:
             lines.append(f"  [{e.provenance:<9}] {e.text}")
+        if self.alternative_station_id:
+            lines.append("")
+            lines.append(
+                f"ALTERNATIVE HYPOTHESIS: {self.alternative_station_id} "
+                f"({(self.alternative_probability or 0) * 100:.0f}% posterior)"
+            )
         if self.caveats:
             lines.append("")
             lines.append("CAVEATS")
@@ -263,6 +277,21 @@ def explain_flow_alert(
             f"material before treating this as a station fault."
         )
 
+    # Second-best candidate, station space only (excludes NULL/LINE_SUPPLY,
+    # which are covered separately by the caveats above). Made visible so a
+    # supervisor sees the model's own uncertainty, not just its top pick --
+    # "likely contributor", never "caused".
+    station_post = result.evidence.get("station_post")
+    alt_id, alt_p = None, None
+    if station_post is not None:
+        ranked = sorted(
+            ((i, p) for i, p in enumerate(station_post) if i != k),
+            key=lambda t: -t[1],
+        )
+        if ranked and ranked[0][1] > 0.02:
+            alt_id = line.stations[ranked[0][0]].station_id
+            alt_p = float(ranked[0][1])
+
     return Explanation(
         station_id=stn.station_id,
         station_tier=stn.tier,
@@ -275,6 +304,8 @@ def explain_flow_alert(
         confidence=float(conf),
         evidence=ev,
         caveats=caveats,
+        alternative_station_id=alt_id,
+        alternative_probability=alt_p,
     )
 
 

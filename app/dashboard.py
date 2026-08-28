@@ -35,9 +35,12 @@ from rippletwin.factory import scenarios as SC  # noqa: E402
 from rippletwin.factory.topology import build_line  # noqa: E402
 from rippletwin.hitl.ledger import (  # noqa: E402
     DECISION_APPROVED,
+    DECISION_ESCALATED,
+    DECISION_MODIFIED,
     DECISION_REJECTED,
     OUTCOME_CONFIRMED,
     OUTCOME_NOT_FOUND,
+    OUTCOME_PENDING,
     DecisionLedger,
 )
 from rippletwin.recommend.engine import recommend_flow  # noqa: E402
@@ -47,6 +50,11 @@ from rippletwin.twin.pipeline import fit_context, infer, simulate  # noqa: E402
 from rippletwin.twin.placement import ambiguity, recommend_sensors  # noqa: E402
 from rippletwin.twin.propagate import current_buffer_levels, forecast_ripple  # noqa: E402
 from rippletwin.twin.shadow import infer_hidden_cycle_time  # noqa: E402
+from rippletwin.twin.whatif import (  # noqa: E402
+    whatif_add_sensor,
+    whatif_cycle_time_improvement,
+    whatif_repair,
+)
 
 CONFIG = ROOT / "configs" / "line_42.yaml"
 LINE_SEED = 7
@@ -454,6 +462,11 @@ if view == "Floor supervisor":
             for e in exp.evidence:
                 tag = {"OBSERVED": "🟦", "INFERRED": "🟨", "PREDICTED": "🟥"}[e.provenance]
                 st.markdown(f"{tag} `{e.provenance}` {e.text}")
+            if exp.alternative_station_id:
+                st.markdown(
+                    f"🥈 **Alternative hypothesis** — {exp.alternative_station_id} "
+                    f"({exp.alternative_probability * 100:.0f}% posterior)"
+                )
         if exp.caveats:
             for cav in exp.caveats:
                 st.caption(f"⚠️ {cav}")
@@ -468,6 +481,33 @@ if view == "Floor supervisor":
         st.caption(f"Rationale: {rec.rationale}")
         if rec.alternatives:
             st.caption(f"If wrong: {rec.alternatives[0]}")
+
+        if est_cycle:
+            with st.expander("🔮 What if...? (simulation-based projections)"):
+                st.caption(
+                    "Every number below is a projection from the same flow-physics "
+                    "model as the forecast above, not a measurement and not a "
+                    "guarantee -- re-running the arithmetic with one input changed."
+                )
+                wtab1, wtab2 = st.tabs(["Repaired now", "Cycle-time improvement"])
+                with wtab1:
+                    rwi = whatif_repair(line, k, est_cycle,
+                                        buffer_levels=current_buffer_levels(scored, w))
+                    wc1, wc2 = st.columns(2)
+                    wc1.metric("Units lost/hr, as-is",
+                              f"{rwi.before.units_lost_at_horizon:.1f}" if rwi.before else "n/a")
+                    wc2.metric("Units lost/hr, if repaired",
+                              f"{rwi.after.units_lost_at_horizon:.1f}" if rwi.after else "n/a")
+                with wtab2:
+                    pct = st.slider("Cycle-time improvement", 0, 50, 10, step=5,
+                                    format="%d%%", key=f"whatif_pct_{w}") / 100.0
+                    cwi = whatif_cycle_time_improvement(line, k, est_cycle, pct,
+                                                        buffer_levels=current_buffer_levels(scored, w))
+                    wc3, wc4 = st.columns(2)
+                    wc3.metric("Units lost/hr, as-is",
+                              f"{cwi.before.units_lost_at_horizon:.1f}" if cwi.before else "n/a")
+                    wc4.metric(f"Units lost/hr, at -{pct:.0%} cycle time",
+                              f"{cwi.after.units_lost_at_horizon:.1f}" if cwi.after else "n/a")
 
         st.markdown("---")
         st.subheader("🤖 Ask the twin")
@@ -500,7 +540,7 @@ if view == "Floor supervisor":
                     f"replaced with the grounded template answer."
                 )
 
-        d1, d2, d3 = st.columns(3)
+        d1, d2, d3, d4, d5 = st.columns(5)
         if d1.button("✅ Approve", use_container_width=True):
             e = ledger.record_alert(
                 scen.scenario_id, w, "FLOW", stn.station_id, stn.tier,
@@ -518,7 +558,28 @@ if view == "Floor supervisor":
             ledger.record_outcome(e.entry_id, OUTCOME_NOT_FOUND,
                                   "Nothing found at the named station.")
             st.warning(f"Rejected and logged (entry {e.entry_id}).")
-        d3.metric("Ledger entries", len(ledger.entries))
+        if d3.button("✏️ Modify", use_container_width=True,
+                     help="Accept the alert but redirect the action -- e.g. check the "
+                          "alternate station listed above instead."):
+            e = ledger.record_alert(
+                scen.scenario_id, w, "FLOW", stn.station_id, stn.tier,
+                stn.is_hidden, rec.confidence, rec.as_dict(), exp.as_dict())
+            alt = rec.alternatives[0] if rec.alternatives else "audit in-flight units instead"
+            ledger.record_decision(e.entry_id, DECISION_MODIFIED, "supervisor",
+                                   f"Redirected: {alt}")
+            ledger.record_outcome(e.entry_id, OUTCOME_PENDING,
+                                  "Modified action pending verification.")
+            st.info(f"Modified and logged (entry {e.entry_id}).")
+        if d4.button("⤴️ Escalate", use_container_width=True,
+                     help="Plausible, but not a call to make alone -- route to a shift "
+                          "lead or process engineer."):
+            e = ledger.record_alert(
+                scen.scenario_id, w, "FLOW", stn.station_id, stn.tier,
+                stn.is_hidden, rec.confidence, rec.as_dict(), exp.as_dict())
+            ledger.record_decision(e.entry_id, DECISION_ESCALATED, "supervisor",
+                                   "Routed to shift lead for review.")
+            st.warning(f"Escalated and logged (entry {e.entry_id}).")
+        d5.metric("Ledger entries", len(ledger.entries))
 
         st.markdown("---")
         st.subheader("The evidence the localisation actually reads")
@@ -638,7 +699,7 @@ elif view == "Plant manager":
         st.dataframe(g, use_container_width=True, hide_index=True)
         st.caption(
             "A defect caught at the end-of-line test has already accumulated the "
-            "full value-add of every station after the one that caused it."
+            "full value-add of every station after the one most likely responsible for it."
         )
 
     st.subheader("Decision ledger")
@@ -689,40 +750,63 @@ else:
         "BUSINESS_CASE.md §5a."
     )
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     events_per_year = c1.number_input(
         "Hidden-station disturbances per line per year", 1, 500, 60)
     minutes_saved = c2.number_input(
         "Minutes of earlier reaction per event", 1, 240, 25)
+    maintenance_cost = c3.number_input(
+        "RippleTwin maintenance / support, per year (USD)", 0, 200000, 30000, step=5000,
+        help="Separate from year-1 deployment cost -- the ongoing cost of keeping it running.")
 
     st.markdown("---")
     st.subheader("The arithmetic")
     takt_per_hour = 3600 / line.takt_s
     veh_per_min = takt_per_hour / 60
+    # Production value/hour and downtime cost/hour are the same number here
+    # (a line at capacity loses one vehicle's margin for every vehicle it
+    # fails to build) -- shown explicitly because the brief asks for both
+    # named separately, not because they are independently assumed.
+    production_value_per_hr = veh_margin * takt_per_hour
+    downtime_cost_per_hr = production_value_per_hr
+
     # Only a fraction of takt is genuinely recovered: a constraint is not fully
     # eliminated the moment it is found.
     recovery = 0.55
     units_recovered = events_per_year * minutes_saved * veh_per_min * recovery
     throughput_value = units_recovered * veh_margin
+    avoided_downtime_hours = units_recovered / max(takt_per_hour, 1e-9)
 
     defects_avoided = events_per_year * 6.0
     quality_value = defects_avoided * rework_cost
 
     annual_value = throughput_value + quality_value
-    opex = deploy_cost * 0.20
-    net = annual_value - opex
-    payback_months = (deploy_cost / max(net, 1e-9)) * 12
+    first_year_cost = deploy_cost + maintenance_cost
+    ongoing_annual_cost = maintenance_cost
+    net_first_year = annual_value - first_year_cost
+    net_ongoing = annual_value - ongoing_annual_cost
+    payback_months = (deploy_cost / max(net_ongoing, 1e-9)) * 12
+    roi_pct = (net_first_year / max(first_year_cost, 1e-9)) * 100
 
-    m1, m2, m3 = st.columns(3)
+    d1, d2 = st.columns(2)
+    d1.metric("Production value / hr", f"${production_value_per_hr:,.0f}")
+    d2.metric("Downtime cost / hr", f"${downtime_cost_per_hr:,.0f}")
+
+    m1, m2, m3, m4 = st.columns(4)
     m1.metric("Throughput value / yr", f"${throughput_value:,.0f}",
-              f"{units_recovered:.0f} vehicles")
+              f"{units_recovered:.0f} vehicles, {avoided_downtime_hours:.1f}h avoided downtime")
     m2.metric("Quality value / yr", f"${quality_value:,.0f}",
-              f"{defects_avoided:.0f} defects")
-    m3.metric("Net value / yr", f"${net:,.0f}", f"payback {payback_months:.1f} months")
+              f"{defects_avoided:.0f} defects avoided")
+    m3.metric("Net value, year 1", f"${net_first_year:,.0f}",
+              f"ROI {roi_pct:+.0f}% on ${first_year_cost:,.0f} year-1 cost")
+    m4.metric("Break-even / payback", f"{payback_months:.1f} months",
+              "against ongoing annual cost, after year 1")
 
     st.caption(
         f"Recovery factor {recovery:.0%} — finding a constraint sooner does not "
-        f"eliminate it, it shortens it. Opex assumed at 20% of deployment cost."
+        f"eliminate it, it shortens it. Year-1 cost = deployment + maintenance; "
+        f"payback/break-even is measured against the ongoing (maintenance-only) "
+        f"annual cost, since deployment is a one-time spend."
     )
 
     st.markdown("---")
@@ -771,6 +855,17 @@ else:
         "noise. Chosen over the more intuitive similarity score because that one "
         "is not monotone: it can imply a new sensor made things worse."
     )
+
+    with st.expander("🔮 What if we added a sensor at a specific station?"):
+        st.caption("Simulation-based projection -- uncertainty before/after, not a guarantee.")
+        blind_ids = [line.stations[i].station_id for i in line.hidden_indices]
+        if blind_ids:
+            pick = st.selectbox("Candidate station", blind_ids, key="whatif_sensor_pick")
+            pick_idx = line.by_id(pick).index
+            swi = whatif_add_sensor(line, pick_idx)
+            wc1, wc2 = st.columns(2)
+            wc1.metric(f"{pick} ambiguity, before", f"{swi.ambiguity_before * 100:.0f}%")
+            wc2.metric(f"{pick} ambiguity, after", f"{swi.ambiguity_after * 100:.0f}%")
 
     st.markdown("---")
     st.subheader("Sensor economics")
