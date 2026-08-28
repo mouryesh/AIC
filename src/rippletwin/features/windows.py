@@ -83,7 +83,7 @@ def aggregate_windows(
     tel = telemetry.merge(idx, on="vehicle_id", how="inner")
 
     agg_map: Dict[str, list] = {
-        "proc_time_s": ["mean", "std", "max"],
+        "proc_time_s": ["mean", "std", "max", "count"],
         "blocked_s": ["mean", "max"],
         "starved_s": ["mean", "max"],
         "t_depart_s": ["min", "max"],
