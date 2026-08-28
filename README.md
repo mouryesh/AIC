@@ -8,6 +8,8 @@ the stations around them are physically coupled to them.
 
 Accenture Innovation Challenge 2026 · Round 2 · Track 4 — **DigitalTwin.ai**
 
+**▶ Live prototype:** _(deploy link — see [Deploying the dashboard](#deploying-the-dashboard))_
+
 > **Every result in this repository is a simulated prototype result on synthetic
 > data.** We have never had access to a real production line. Nothing here is a
 > measurement of, or a validated claim about, any real plant.
@@ -226,6 +228,28 @@ decision, and writes a hash-chained ledger entry.
 ```bash
 streamlit run app/dashboard.py
 ```
+
+Views and scenarios are deep-linkable, which is useful when demoing:
+
+```
+?view=Leadership
+?view=Floor+supervisor&scenario=S2_HIDDEN_QUALITY
+```
+
+### Deploying the dashboard
+
+The app runs on Streamlit Community Cloud's free tier without modification —
+measured cold start is **2.6 s** and peak memory **385 MB**, against a ~1 GB
+limit. Point it at this repository with:
+
+| Setting | Value |
+|---|---|
+| Main file path | `app/dashboard.py` |
+| Branch | `main` |
+| Requirements | `requirements.txt` (repo root) |
+
+No secrets and no environment variables are required — the app generates all of
+its own data from a fixed seed.
 
 **Reproduce the evaluation** (~25 min):
 

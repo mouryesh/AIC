@@ -232,13 +232,24 @@ line, ctx, qbase, nominal = load_twin()
 
 st.sidebar.title("RippleTwin")
 st.sidebar.caption("Digital twin for a mixed-model vehicle assembly line")
+
+# Views and scenarios are deep-linkable (?view=Leadership&scenario=S2_HIDDEN_QUALITY)
+# so a demo can jump straight to a screen instead of clicking through it.
+_VIEWS = ["Floor supervisor", "Plant manager", "Leadership"]
+_qp = st.query_params
+_v = _qp.get("view", "")
 view = st.sidebar.radio(
-    "View", ["Floor supervisor", "Plant manager", "Leadership"], index=0
+    "View", _VIEWS, index=_VIEWS.index(_v) if _v in _VIEWS else 0
 )
+
+_SCENARIOS = ["S1_HIDDEN_BOTTLENECK", "S2_HIDDEN_QUALITY", "S3_NORMAL",
+              "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY"]
+_s = _qp.get("scenario", "")
 scenario_key = st.sidebar.selectbox(
     "Scenario",
     ["S1_HIDDEN_BOTTLENECK", "S2_HIDDEN_QUALITY", "S3_NORMAL",
      "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY"],
+    index=_SCENARIOS.index(_s) if _s in _SCENARIOS else 0,
     format_func=lambda k: {
         "S1_HIDDEN_BOTTLENECK": "S1 - hidden bottleneck (no sensor)",
         "S2_HIDDEN_QUALITY": "S2 - hidden quality drift",
@@ -267,6 +278,39 @@ st.sidebar.warning(
     "All figures are SIMULATED PROTOTYPE RESULTS on synthetic data. "
     "No real production data is used and no real-plant ROI is claimed."
 )
+
+# A judge opening the hosted URL arrives with no context whatsoever, so the
+# first thing on the page has to answer "what am I looking at" before anything
+# else competes for attention.
+with st.expander("What is this? — read me first", expanded=True):
+    st.markdown(
+        """
+**RippleTwin is a digital twin for a vehicle assembly line that reports on
+stations which have no sensor at all.**
+
+Round 2 of the Accenture Innovation Challenge asks, for Track 4 DigitalTwin.ai:
+*"what do you do about stations with little or no sensor data?"* This is our
+answer to that question specifically.
+
+**The line below has 42 stations. Ten of them send us nothing** — no cycle time,
+no state, no telemetry of any kind. They are drawn as **diamonds** on the line
+map. A conventional twin cannot model them at all.
+
+**How we see them.** When a station slows down, everything behind it backs up
+(*blocked*) and everything in front of it runs dry (*starved*). The boundary
+between those two is the station causing it. So we read the stations we *can*
+see and locate the one we cannot. In the supervisor view, the red/blue chart is
+that boundary — and it lands inside a grey "no sensor" band.
+
+**Try this:** leave the scenario on *S1 — hidden bottleneck*. The twin names
+**S02**, states its cycle time, and S02 has no sensor. Tick **Reveal ground
+truth** in the sidebar to check it against what the simulator actually did.
+Then try *S3 — normal variation*, where the correct answer is silence.
+
+Every figure here is a **simulated prototype result on synthetic data**. No real
+production data is used, and no real-plant ROI is claimed.
+        """
+    )
 
 if "ledger" not in st.session_state:
     st.session_state.ledger = DecisionLedger()
