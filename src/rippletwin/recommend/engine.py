@@ -284,6 +284,58 @@ def recommend_flow(
     )
 
 
+# --------------------------------------------------------------- taxonomy
+#
+# RippleTwin's actual decision is the Recommendation above -- a specific
+# action, a priority, and an abstained flag. The five-way ALLOW / WATCH /
+# INVESTIGATE / ESCALATE / ABSTAIN vocabulary below is a coarser read-out
+# over that same decision, not a second decision layer: nothing here changes
+# what the twin recommends, it only names where that recommendation sits on
+# a shorter ladder for a UI or report that wants it.
+
+TAXONOMY_ALLOW = "ALLOW"
+TAXONOMY_WATCH = "WATCH"
+TAXONOMY_INVESTIGATE = "INVESTIGATE"
+TAXONOMY_ESCALATE = "ESCALATE"
+TAXONOMY_ABSTAIN = "ABSTAIN"
+
+
+def taxonomy_label(rec: "Recommendation") -> tuple:
+    """Map a ``Recommendation`` onto (taxonomy label, reason).
+
+    ``ESCALATE`` is reserved for the case the twin explicitly named
+    (``ACTION_ESCALATE`` -- posterior spread across indistinguishable
+    candidates); any other abstention (e.g. checking supply before blaming a
+    station) is ``ABSTAIN`` -- the twin had a reason not to name a station,
+    stated in ``rec.rationale``.
+    """
+    if rec.abstained:
+        if rec.action == ACTION_ESCALATE:
+            return TAXONOMY_ESCALATE, rec.rationale
+        return TAXONOMY_ABSTAIN, rec.rationale
+    if rec.action == ACTION_MONITOR:
+        return TAXONOMY_WATCH, rec.rationale
+    if rec.action in (ACTION_INSPECT, ACTION_QUALITY_HOLD, ACTION_CHECK_SUPPLY):
+        return TAXONOMY_INVESTIGATE, rec.rationale
+    return TAXONOMY_ALLOW, "No action recommended."
+
+
+#: Maps ``twin.predict`` state names onto the same taxonomy, for the case
+#: where no station is confident enough yet to produce a ``Recommendation``
+#: at all (state ``NORMAL``/``DEGRADING``/etc. can exist before any alert
+#: does). Kept as a plain dict rather than importing ``twin.predict`` here,
+#: so this module does not have to know that module's states are spelled
+#: exactly this way -- the caller passes the state string it already has.
+PREDICT_STATE_TAXONOMY = {
+    "NORMAL": TAXONOMY_ALLOW,
+    "RECOVERING": TAXONOMY_ALLOW,
+    "DEGRADING": TAXONOMY_WATCH,
+    "WATCH": TAXONOMY_WATCH,
+    "PREDICTED_CONSTRAINT": TAXONOMY_INVESTIGATE,
+    "ACTIVE_BOTTLENECK": TAXONOMY_INVESTIGATE,
+}
+
+
 def recommend_quality(
     line: LineTopology,
     station: int,

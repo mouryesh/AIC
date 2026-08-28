@@ -380,8 +380,32 @@ def build_line(config_path: str | Path, seed: int = 7) -> LineTopology:
     )
 
 
+def _critical_order(line: "LineTopology", candidates: List[int]) -> List[int]:
+    """Rank currently-observed ``candidates`` by how much separability across
+    the rest of the line would be lost if each, alone, went dark.
+
+    Local import of ``twin.placement`` -- that module already imports from
+    ``twin.shadow``, which imports this module, so importing it at module
+    load time here would be circular. Deferring to call time (the same
+    pattern ``factory/simulator.py::SimResult.as_plant_data`` already uses
+    for its own cross-package import) avoids that without restructuring
+    either module.
+    """
+    from ..twin.placement import ambiguity
+
+    observed = set(line.observed_indices)
+    base = ambiguity(line, observed).set_index("station")["separability"]
+    losses: Dict[int, float] = {}
+    for c in candidates:
+        without = ambiguity(line, observed - {c}).set_index("station")["separability"]
+        loss = float((base - without).clip(lower=0.0).sum())
+        losses[c] = loss
+    return sorted(candidates, key=lambda i: -losses[i])
+
+
 def apply_coverage(
-    line: LineTopology, target_coverage: float, seed: int = 11
+    line: LineTopology, target_coverage: float, seed: int = 11,
+    strategy: str = "random",
 ) -> LineTopology:
     """Return a copy of ``line`` degraded to a target observed-station fraction.
 
@@ -390,6 +414,17 @@ def apply_coverage(
     stations go dark entirely. Inspection gates and station 0 are never demoted,
     because a plant that cannot read its own end-of-line test has no data problem
     worth solving.
+
+    ``strategy``:
+
+    * ``"random"`` (default) -- uniformly random among demotable observed
+      stations, as the existing coverage sweep has always done.
+    * ``"critical"`` -- hides the stations that currently carry the most
+      value-of-information first (``_critical_order``, the same
+      separability calculation ``twin.placement`` uses to *recommend* a
+      sensor, run in reverse to ask what removing one costs). This is the
+      "losing your most useful sensors" scenario, as distinct from losing
+      random ones -- see ``docs/RESULTS.md``'s coverage matrix.
     """
     import copy
 
@@ -412,7 +447,12 @@ def apply_coverage(
             f"cannot reach coverage {target_coverage:.2f}: only {len(candidates)} "
             f"demotable observed stations (inspection gates are protected)"
         )
-    hide = rng.choice(candidates, size=n_to_hide, replace=False)
+    if strategy == "critical":
+        hide = _critical_order(new, candidates)[:n_to_hide]
+    elif strategy == "random":
+        hide = rng.choice(candidates, size=n_to_hide, replace=False)
+    else:
+        raise ValueError(f"unknown strategy: {strategy!r}")
     for i in hide:
         new.stations[i].tier = TIER_MANUAL
     return new
