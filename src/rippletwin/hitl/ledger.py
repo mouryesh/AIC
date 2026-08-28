@@ -29,6 +29,18 @@ import pandas as pd
 DECISION_APPROVED = "APPROVED"
 DECISION_REJECTED = "REJECTED"
 DECISION_DEFERRED = "DEFERRED"
+#: A supervisor accepted the alert but redirected the action -- e.g. "check
+#: the neighbour instead" or "audit in-flight units, don't inspect now".
+#: Recorded with the same record_decision() call as the other three; the
+#: note field is where the actual modification is stated, matching how
+#: every other decision type already uses it.
+DECISION_MODIFIED = "MODIFIED"
+#: A supervisor judged the alert plausible but not theirs to resolve alone
+#: -- routed to a shift lead / process engineer rather than approved or
+#: rejected outright. Distinct from the twin's own ACTION_ESCALATE (an
+#: abstention the *model* raises); this is a *human* escalation of a named
+#: alert the twin was confident enough to make.
+DECISION_ESCALATED = "ESCALATED"
 
 OUTCOME_CONFIRMED = "CONFIRMED"        # the condition was found where predicted
 OUTCOME_NOT_FOUND = "NOT_FOUND"        # nothing wrong at the named station

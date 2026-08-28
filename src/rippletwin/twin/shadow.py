@@ -113,6 +113,12 @@ class ShadowConfig:
     #: to size "is this trending up" as a multiple of the statistic's own
     #: noise rather than an arbitrary slope constant.
     llr_noise_std: float = 1.0
+    #: Optional per-station-index prior weight (1.0 = uniform), set by
+    #: ``twin.feedback.apply_feedback`` from validated human-in-the-loop
+    #: outcomes (``hitl.ledger.precision_by_station``). ``None`` -- every
+    #: caller that has not explicitly closed the feedback loop -- reproduces
+    #: today's uniform prior exactly; see ``ShadowSensor._posterior``.
+    station_prior_weight: Optional[Dict[int, float]] = None
 
 
 # ------------------------------------------------------------------ propagation
@@ -383,10 +389,26 @@ class ShadowSensor:
         log_prior_null = np.log(cfg.null_prior)
         log_prior_other = np.log((1.0 - cfg.null_prior) / (n + 1))
 
+        # Per-station prior from validated human feedback (twin/feedback.py),
+        # optional and off by default. When cfg.station_prior_weight is None
+        # -- every existing caller, every existing test, every published
+        # result -- log_prior_station reduces to exactly log_prior_other
+        # repeated n times, i.e. the identical uniform prior this method has
+        # always used. Only a caller that explicitly sets the weight map
+        # (via twin.feedback.apply_feedback) sees different behaviour.
+        if cfg.station_prior_weight:
+            w = np.array(
+                [cfg.station_prior_weight.get(i, 1.0) for i in range(n)], dtype=float
+            )
+            w = w / w.sum()
+            log_prior_station = np.log((1.0 - cfg.null_prior) * n * w / (n + 1) + 1e-300)
+        else:
+            log_prior_station = np.full(n, log_prior_other)
+
         keys: List[object] = list(range(n)) + [NULL_HYPOTHESIS, LINE_SUPPLY_HYPOTHESIS]
         logp = np.concatenate(
             [
-                ll_station + log_prior_other,
+                ll_station + log_prior_station,
                 [ll_null + log_prior_null],
                 [ll_line + log_prior_other],
             ]

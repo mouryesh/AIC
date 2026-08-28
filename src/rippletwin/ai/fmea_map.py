@@ -2,8 +2,9 @@
 
 The deployment problem this solves
 ----------------------------------
-RippleTwin's quality path attributes a defect to the station that caused it by
-asking which station the failing units passed through that the passing ones did
+RippleTwin's quality path attributes a defect to the station most likely to
+have produced it -- a statistical inference, not a certainty -- by asking
+which station the failing units passed through that the passing ones did
 not. That works far better when it knows which stations can *physically*
 produce which defect: a sealer station cannot cause a torque fault, and using
 that fact narrows attribution from "somewhere in body shop" to a handful of
