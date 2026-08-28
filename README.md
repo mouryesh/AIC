@@ -456,6 +456,75 @@ deliberately fabricated number and asserts it gets caught.
 
 ---
 
+## Where AI is used, and where it deliberately is not
+
+The localisation is physics, not learning. That is a decision, not an omission:
+the baselines score a structural 0% on hidden stations because they can only
+rank what they measure, and replacing conservation of material with a learned
+correlation would trade away the one thing that survives a sensor gap.
+
+There is evidence for that restraint. A 2026 PRISMA systematic review of
+foundation-model agents in industrial automation (arXiv:2605.02592, 88 papers
+screened from 2,341) finds **75.0% of reported systems at TRL 4-6** and only
+**9.1% at TRL 7-9**, with the most frequently reported limitations being *"lack
+of generalization, hallucination and output instability, data scarcity, and
+inference latency"*. Its own conclusion is that *"despite the ability to quickly
+develop lab-scale demonstrators, the step to deployment in operation is more
+difficult and has rarely been achieved."*
+
+So the test we apply is: **if the model is wrong, what breaks?**
+
+| Where | What the model does | If it is wrong |
+|---|---|---|
+| [`ai/fmea_map.py`](src/rippletwin/ai/fmea_map.py) | Reads a control plan / process FMEA and proposes the station-to-defect-type map | An engineer spends review time. Runs offline, once, before deployment. Output is a draft nothing consumes until signed off. |
+| [`copilot/ask.py`](src/rippletwin/copilot/ask.py) | Phrases an answer over numbers the twin already computed | A guardrail rejects any figure not in the evidence pack. It cannot state a number the twin did not compute. |
+| **Localisation, thresholds, work-order figures** | **Nothing.** | — |
+
+Both uses are text-to-structure over a controlled vocabulary — what language
+models are genuinely good at — and neither can reach a live decision.
+
+### The defect-map assistant
+
+The quality path works far better knowing which stations can *physically*
+produce which defect: a sealer station cannot cause a torque fault. In our
+simulator that is a hand-written YAML field. In a plant it already exists, as
+the **process FMEA and control plan** every automotive plant maintains — but as
+a spreadsheet of prose written by process engineers over a decade. Nobody will
+retype that to trial an unproven tool, and the Phase 0 report says so: without
+it, attribution degrades from station level to zone level.
+
+```bash
+python -m rippletwin.ai.fmea_map \
+  --plan control_plan.csv --stations stations.txt --defects defect_codes.txt \
+  --out proposed_defect_map.yaml
+```
+
+**The default backend needs no credentials and no network.** Failure-mode text
+is matched against the plant's defect vocabulary using a synonym table of
+ordinary automotive failure language, weighted by token specificity. Output is
+byte-identical for the same input. Setting `GROQ_API_KEY` or
+`ANTHROPIC_API_KEY` and passing `--use-llm` adds a model path for control plans
+written as prose; if the call fails, it falls back rather than stopping a pilot.
+
+Two properties are pinned by tests:
+
+- **The model cannot invent an asset.** It is given the station list and the
+  defect vocabulary, and anything it returns outside those lists is discarded.
+- **Nothing is silently dropped.** A failure mode that could not be mapped is
+  listed in the output, because an unmapped failure mode is a station the
+  quality path stays blind to.
+
+Every proposal carries the source row it came from, so a reviewer can check it
+against the document rather than trust it. The rendered YAML is headed
+`A DRAFT, NOT A CONFIGURATION`.
+
+One honest limitation, found while building it: a *"panel locating pin"* is
+mechanical and a *"connector pin"* is electrical, and token matching alone
+scored the first as an electrical fault with 1.00 confidence. Specificity
+weighting and an evidence-mass term fixed the ranking, but lexical ambiguity of
+that kind is not fully solvable this way — which is exactly why the output is a
+draft for sign-off and why the model backend exists.
+
 ## Responsible AI
 
 - **No autonomous control.** RippleTwin writes to no PLC and cannot stop the
