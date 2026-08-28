@@ -87,9 +87,14 @@ def aggregate_windows(
         "blocked_s": ["mean", "max"],
         "starved_s": ["mean", "max"],
         "t_depart_s": ["min", "max"],
-        "buffer_level": ["mean"],
-        "buffer_capacity": ["max"],
     }
+    # Buffer occupancy is optional in the data contract -- a plant with no
+    # conveyor counters is explicitly supported -- so aggregate it only when it
+    # is actually there. It used to be unconditional, which meant such a plant
+    # crashed here rather than degrading.
+    for c in ("buffer_level", "buffer_capacity"):
+        if c in tel.columns:
+            agg_map[c] = ["mean"] if c == "buffer_level" else ["max"]
     for c in PROCESS_CHANNELS:
         if c in tel.columns:
             agg_map[c] = ["mean", "std"]
@@ -128,7 +133,10 @@ def aggregate_windows(
     out["station_id"] = out["station"].map({s.index: s.station_id for s in line.stations})
     out["zone"] = out["station"].map({s.index: s.zone for s in line.stations})
     out["tier"] = out["station"].map({s.index: s.tier for s in line.stations})
-    # Buffer fill ratio, where derivable.
+    # Buffer fill ratio, where derivable. Absent counters give NaN, not an error.
+    for c in ("buffer_level_mean", "buffer_capacity_max"):
+        if c not in out.columns:
+            out[c] = np.nan
     out["buffer_fill"] = out["buffer_level_mean"] / out["buffer_capacity_max"].replace(0, np.nan)
     return out
 

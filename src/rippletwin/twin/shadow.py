@@ -496,9 +496,21 @@ class ShadowSensor:
         """
         piv = nominal_scored.pivot_table(index="window", columns="station", values="pressure")
         piv = piv.dropna(axis=1, how="any")
+        # A station that never blocks or starves across the whole baseline
+        # period has zero variance, and correlating it divides by zero. On the
+        # simulator that essentially never happens; on a real line an isolated
+        # or well-buffered station is entirely capable of it, so drop those
+        # columns rather than let a NaN propagate into tau.
+        if piv.shape[1]:
+            sd = piv.std(axis=0)
+            # A tolerance, not ``> 0``: a column can be constant to within
+            # floating-point noise and still pass a strict test, then underflow
+            # inside corrcoef's own standardisation.
+            piv = piv.loc[:, sd > 1e-9 * np.maximum(1.0, piv.mean(axis=0).abs())]
         n_obs = piv.shape[1]
         if n_obs >= 3 and len(piv) >= 10:
-            C = np.corrcoef(piv.to_numpy().T)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                C = np.corrcoef(piv.to_numpy().T)
             off = C[~np.eye(n_obs, dtype=bool)]
             rho = float(np.clip(np.nanmean(off), 0.0, 0.98))
             n_eff = n_obs / (1.0 + (n_obs - 1) * rho)
