@@ -1,0 +1,77 @@
+# RippleTwin — Plant C: serial line + a rework spur
+#
+# A small (13-station) topology-generalization demonstrator: a mostly serial
+# line with a rework spur -- station 5 conditionally routes a vehicle through
+# an extra rework station (12) before it re-merges ahead of station 6. This
+# is acyclic in station-space (a spur-and-remerge, not an upstream loop), the
+# scoping decision explained in factory/graph_simulator.py's module
+# docstring and docs/METHOD.md. The routing rule alternates by vehicle_id
+# (see factory/graph_simulator.py::GraphLineSimulator._route) rather than
+# modeling a real inspection outcome, so roughly half of vehicles take the
+# spur here -- deliberately a harder merge-timing stress case than a
+# realistic low rework rate, not an attempt at a realistic rework fraction.
+#
+# All values are ILLUSTRATIVE ASSUMPTIONS for a synthetic demonstrator line.
+
+line:
+  name: "Plant-C (synthetic, rework spur)"
+  takt_seconds: 60.0
+  n_stations: 13
+
+zones:
+  - id: BODY
+    name: "Single zone (demo)"
+    station_count: 13
+    base_cycle_seconds: 55.0
+    cycle_spread: 0.10
+    internal_buffer: 3
+    process_noise_cv: 0.05
+    microstop_rate: 0.010
+    microstop_seconds: [8, 40]
+
+inter_zone_buffer: {}
+
+inspections: []
+
+variants:
+  - id: BASE
+    share: 1.0
+    work_factor: {BODY: 1.00}
+    defect_susceptibility: 1.00
+
+shifts:
+  - id: A
+    start_hour: 0
+    hours: 24
+    operator_factor: 1.00
+    operator_cv: 0.030
+
+sensing:
+  rich_fraction: 0.23
+  basic_fraction: 0.46
+  manual_fraction: 0.31
+  manual_bias_zones: {BODY: 1.0}
+
+environment:
+  ambient_temp_c: {mean: 22.0, daily_amplitude: 3.0, noise: 0.5}
+  humidity_pct: {mean: 50.0, daily_amplitude: 8.0, noise: 2.0}
+  paint_humidity_sensitivity: 0.0
+
+# Explicit process graph. Stations 0-11 are the main line; station 12 is the
+# rework spur, fed from station 5 and re-merging into station 6.
+#   0 -> 1 -> 2 -> 3 -> 4 -> 5 -> {6, 12} ; 12 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
+topology:
+  edges:
+    - {from: 0, to: 1, buffer: 3}
+    - {from: 1, to: 2, buffer: 3}
+    - {from: 2, to: 3, buffer: 3}
+    - {from: 3, to: 4, buffer: 3}
+    - {from: 4, to: 5, buffer: 3}
+    - {from: 5, to: 6, buffer: 3}
+    - {from: 5, to: 12, buffer: 3}
+    - {from: 12, to: 6, buffer: 3}
+    - {from: 6, to: 7, buffer: 3}
+    - {from: 7, to: 8, buffer: 3}
+    - {from: 8, to: 9, buffer: 3}
+    - {from: 9, to: 10, buffer: 3}
+    - {from: 10, to: 11, buffer: 1000000}

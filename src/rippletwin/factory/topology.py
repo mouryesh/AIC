@@ -12,9 +12,10 @@ over this structure rather than over an unordered bag of sensor channels.
 from __future__ import annotations
 
 import math
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Set
 
 import numpy as np
 import yaml
@@ -88,8 +89,37 @@ class Station:
 
 
 @dataclass
+class Edge:
+    """One directed arc of the process graph: a buffer between two stations.
+
+    A plain serial line never needs this explicitly -- it is exactly the
+    implicit chain ``i -> i+1`` with capacity ``stations[i].out_buffer``,
+    which ``LineTopology.effective_edges()`` synthesizes on the fly. ``Edge``
+    only needs to be written out when the topology is genuinely not a chain:
+    a split (a station with more than one outgoing edge), a merge (more than
+    one incoming edge), or a rework spur.
+    """
+
+    src: int
+    dst: int
+    buffer_capacity: int
+
+
+@dataclass
 class LineTopology:
-    """An ordered serial line with finite buffers between consecutive stations."""
+    """A process graph of stations connected by finite buffers.
+
+    ``edges`` is empty for the common case -- a plain serial line -- in which
+    case every graph-aware method below (``effective_edges``, ``successors``,
+    ``ancestors``, ...) falls back to the implicit chain. Setting ``edges``
+    explicitly (via a ``topology:`` block in the line config) generalizes to
+    a DAG: parallel branches, a merge point, or a rework spur. ``is_graph``
+    is the single switch every dispatch point in ``twin/shadow.py`` and
+    ``twin/propagate.py`` reads to decide which computation to run --
+    existing serial-line code paths are untouched when it is False, which is
+    what keeps every previously-published result in this repository
+    reproducible unchanged.
+    """
 
     name: str
     takt_s: float
@@ -98,6 +128,7 @@ class LineTopology:
     variants: Dict[str, dict]
     shifts: List[dict]
     environment: Dict[str, dict]
+    edges: List[Edge] = field(default_factory=list)
 
     # ------------------------------------------------------------------ basics
 
@@ -176,6 +207,86 @@ class LineTopology:
         if j != i + 1:
             raise ValueError("buffers are only defined between consecutive stations")
         return self.stations[i].out_buffer
+
+    # -------------------------------------------------------------- graph
+
+    @property
+    def is_graph(self) -> bool:
+        """True when ``edges`` was set explicitly (a non-serial topology)."""
+        return len(self.edges) > 0
+
+    def effective_edges(self) -> List[Edge]:
+        """The graph actually in force: ``edges`` if set, else the implicit
+        serial chain ``i -> i+1`` with each station's own ``out_buffer``."""
+        if self.edges:
+            return self.edges
+        return [
+            Edge(src=i, dst=i + 1, buffer_capacity=self.stations[i].out_buffer)
+            for i in range(self.n_stations - 1)
+        ]
+
+    def successors(self, i: int) -> List[int]:
+        """Stations ``i`` feeds directly. More than one means ``i`` splits."""
+        return sorted(e.dst for e in self.effective_edges() if e.src == i)
+
+    def predecessors(self, i: int) -> List[int]:
+        """Stations that feed ``i`` directly. More than one means ``i`` merges."""
+        return sorted(e.src for e in self.effective_edges() if e.dst == i)
+
+    def ancestors(self, i: int) -> Set[int]:
+        """Every station with a directed path to ``i`` -- the graph
+        generalization of "upstream of i" (``j < i`` on a serial chain)."""
+        seen: Set[int] = set()
+        q = deque(self.predecessors(i))
+        while q:
+            u = q.popleft()
+            if u in seen:
+                continue
+            seen.add(u)
+            q.extend(self.predecessors(u))
+        return seen
+
+    def descendants(self, i: int) -> Set[int]:
+        """Every station reachable from ``i`` -- the graph generalization of
+        "downstream of i" (``j > i`` on a serial chain)."""
+        seen: Set[int] = set()
+        q = deque(self.successors(i))
+        while q:
+            u = q.popleft()
+            if u in seen:
+                continue
+            seen.add(u)
+            q.extend(self.successors(u))
+        return seen
+
+    def topological_order(self) -> List[int]:
+        """Kahn's algorithm over ``effective_edges()``. Raises if the graph
+        is not acyclic -- every topology this project supports (serial,
+        parallel branches, merges, and a rework spur that re-merges before
+        the next station) is acyclic by construction; see
+        ``factory/graph_simulator.py``'s module docstring for why a true
+        upstream cycle is deliberately out of scope."""
+        indeg = {s.index: 0 for s in self.stations}
+        for e in self.effective_edges():
+            indeg[e.dst] += 1
+        order = [i for i, d in indeg.items() if d == 0]
+        order.sort()
+        q = deque(order)
+        out: List[int] = []
+        succ_cache = {s.index: self.successors(s.index) for s in self.stations}
+        while q:
+            u = q.popleft()
+            out.append(u)
+            for v in succ_cache[u]:
+                indeg[v] -= 1
+                if indeg[v] == 0:
+                    q.append(v)
+        if len(out) != self.n_stations:
+            raise ValueError(
+                "topology is not a DAG -- a true upstream cycle is not supported "
+                "(model rework as a spur that re-merges downstream instead)"
+            )
+        return out
 
     def zone_of(self, index: int) -> str:
         return self.stations[index].zone
@@ -369,6 +480,14 @@ def build_line(config_path: str | Path, seed: int = 7) -> LineTopology:
             )
         )
 
+    edges: List[Edge] = []
+    topo_cfg = cfg.get("topology")
+    if topo_cfg:
+        for e in topo_cfg.get("edges", []):
+            edges.append(
+                Edge(src=int(e["from"]), dst=int(e["to"]), buffer_capacity=int(e["buffer"]))
+            )
+
     return LineTopology(
         name=line_cfg["name"],
         takt_s=float(line_cfg["takt_seconds"]),
@@ -377,6 +496,7 @@ def build_line(config_path: str | Path, seed: int = 7) -> LineTopology:
         variants={v["id"]: v for v in cfg["variants"]},
         shifts=cfg["shifts"],
         environment=cfg["environment"],
+        edges=edges,
     )
 
 
