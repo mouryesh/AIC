@@ -86,6 +86,8 @@ def run_scenario(scenario_key: str, _line, _ctx, _qbase):
         "S4_OBSERVED_STATION": SC.scenario_observed_station,
         "S5_VARIANT_AND_SUPPLY": SC.scenario_variant_shift,
         "S6_EARLY_WARNING": SC.scenario_gradual_bottleneck,
+        "S7_MULTIPLE_ABNORMALITIES": SC.scenario_multiple_abnormalities,
+        "S8_RARE_DEFECT": SC.scenario_rare_defect,
     }
     scen = builders[scenario_key](_line)
     res = simulate(_line, scen, seed=DEMO_SEED)
@@ -270,7 +272,8 @@ view = st.sidebar.radio(
 )
 
 _SCENARIOS = ["S1_HIDDEN_BOTTLENECK", "S2_HIDDEN_QUALITY", "S3_NORMAL",
-              "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY", "S6_EARLY_WARNING"]
+              "S4_OBSERVED_STATION", "S5_VARIANT_AND_SUPPLY", "S6_EARLY_WARNING",
+              "S7_MULTIPLE_ABNORMALITIES", "S8_RARE_DEFECT"]
 _s = _qp.get("scenario", "")
 scenario_key = st.sidebar.selectbox(
     "Scenario",
@@ -283,6 +286,8 @@ scenario_key = st.sidebar.selectbox(
         "S4_OBSERVED_STATION": "S4 - fault at an instrumented station",
         "S5_VARIANT_AND_SUPPLY": "S5 - mix change + supply delay (not a fault)",
         "S6_EARLY_WARNING": "S6 - gradual ramp (early-warning demo)",
+        "S7_MULTIPLE_ABNORMALITIES": "S7 - two simultaneous, unrelated faults",
+        "S8_RARE_DEFECT": "S8 - a small, marginal quality drift (hard case)",
     }[k],
 )
 
