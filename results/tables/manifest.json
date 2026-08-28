@@ -98,7 +98,7 @@
     }
   },
   "nominal_rate_vph": 49.95731840045454,
-  "n_localization_rows": 1376,
+  "n_localization_rows": 1720,
   "n_episodes_test": 110,
-  "runtime_s": 1755.8
+  "runtime_s": 1790.1
 }

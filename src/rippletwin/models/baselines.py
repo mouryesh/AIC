@@ -14,6 +14,15 @@ strawman. Together they isolate exactly which ingredient is doing the work:
         unsupervised, and completely topology-blind: it can tell you a station
         looks unusual, but not whether that station is a cause or a victim.
 
+    B3  The Turning Point Method (Li, Chang & Ni, 2009)
+        The established method from the manufacturing-science literature, which
+        uses exactly the blockage/starvation signal RippleTwin is built on. It
+        is the honest answer to "why not just use the standard approach", and
+        RippleTwin's contribution only means anything relative to it. Its
+        decisive limitation is that it scans the stations it can measure, so a
+        turning point falling in an un-instrumented run is outside its output
+        space entirely.
+
     B2  Observed-only twin
         RippleTwin's own flow model, restricted to hypotheses about stations
         that have sensors. This is the sharpest comparison in the set: same
@@ -262,7 +271,93 @@ def build_methods(
         line, scored, cfg, sigma_b, sigma_s
     ).frame
     out["B0_SPC_observed"] = spc_baseline(scored, line).frame
+    out["B3_TurningPoint"] = turning_point_baseline(scored, line).frame
     out["B1_IsolationForest"] = isolation_forest_baseline(
         nominal_scored, scored, line
     ).frame
     return {k: v for k, v in out.items() if not v.empty}
+
+
+# ------------------------------------- B3: the classical Turning Point Method
+
+
+def turning_point_baseline(
+    scored: pd.DataFrame,
+    line: LineTopology,
+    use_deviations: bool = True,
+) -> BaselineResult:
+    """The Turning Point Method of Li, Chang & Ni (2009).
+
+    This is the established method from the manufacturing-science literature
+    that uses exactly the signal RippleTwin is built on. It is included as a
+    baseline because it is the honest answer to "why not just use the standard
+    approach", and because RippleTwin's contribution is only meaningful as a
+    contribution *relative to it*.
+
+    The published rule, as stated in the 2023 systematic review of throughput
+    bottleneck detection: the bottleneck is the station at which the trend
+    changes from blockage exceeding starvation to starvation exceeding blockage.
+    With TB the blocked time and TS the starved time, station b is the turning
+    point when::
+
+        (TB[b-1] - TS[b-1]) > 0  and  (TB[b] - TS[b]) < 0
+
+    Two documented special cases are implemented as published: if starvation
+    exceeds blockage at every station the first station is named; if blockage
+    exceeds starvation everywhere the last station is named.
+
+    The decisive limitation, and the whole reason RippleTwin exists
+    -------------------------------------------------------------
+    The method scans the stations it can measure. When the true turning point
+    falls in a run of stations with no telemetry, the scan cannot stop there --
+    it can only name the nearest station it can see. The turning point is not
+    merely estimated poorly; it is **outside the method's output space**.
+
+    ``use_deviations`` scores against nominal rather than on raw blocked and
+    starved times. This is *more* favourable to the baseline than the published
+    form: stations on a real line differ in their nominal blocking and starving,
+    and the raw rule flips sign on that station-to-station variation alone. We
+    grant the baseline the stronger variant so that its failure cannot be
+    attributed to us having implemented a weakened version of it.
+    """
+    b_col = "d_blocked" if use_deviations else "blocked_frac"
+    s_col = "d_starved" if use_deviations else "starved_frac"
+    if b_col not in scored.columns or s_col not in scored.columns:
+        return BaselineResult("B3_TurningPoint", pd.DataFrame())
+
+    rows = []
+    for w, g in scored.groupby("window", sort=True):
+        g = g.sort_values("station")
+        st = g["station"].to_numpy(dtype=int)
+        diff = (g[b_col].to_numpy(dtype=float) - g[s_col].to_numpy(dtype=float))
+        if len(st) < 2 or not np.all(np.isfinite(diff)):
+            diff = np.nan_to_num(diff)
+        if len(st) < 2:
+            continue
+
+        # Scan for the sign change, positive (blocked-dominant) -> negative.
+        idx = None
+        strength = 0.0
+        for j in range(len(st) - 1):
+            if diff[j] > 0 and diff[j + 1] < 0:
+                mag = float(diff[j] - diff[j + 1])
+                if mag > strength:
+                    strength = mag
+                    # The published rule names the station at which the sign has
+                    # turned, i.e. the first station on the starved side.
+                    idx = j + 1
+        if idx is None:
+            # Published special cases.
+            if np.all(diff <= 0):
+                idx, strength = 0, float(np.max(np.abs(diff)))
+            else:
+                idx, strength = len(st) - 1, float(np.max(np.abs(diff)))
+
+        rows.append(
+            {
+                "window": int(w),
+                "top_station": int(st[idx]),
+                "score": float(strength),
+            }
+        )
+    return BaselineResult("B3_TurningPoint", pd.DataFrame(rows))

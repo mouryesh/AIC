@@ -36,7 +36,7 @@ Every element the brief names for the proposal is covered:
 | Area | Covered |
 |---|---|
 | Modelling approach — what to represent vs infer | ✅ explicit OBSERVED / INFERRED / PREDICTED split |
-| Predictive techniques + how you'd validate before trusting output | ✅ 3 baselines at matched FPR, coverage sweep, 49 tests |
+| Predictive techniques + how you'd validate before trusting output | ✅ 4 baselines at matched FPR **including the published Turning Point Method**, coverage sweep, 62 tests |
 | Handling data gaps at sensor-poor stations | ✅ the core mechanism |
 | Distinct views for supervisor / plant manager / leadership | ✅ three dashboard views |
 | Integration around legacy PLCs without disrupting production | ✅ read-only; no PLC writes anywhere |
@@ -47,14 +47,17 @@ Every element the brief names for the proposal is covered:
 - [x] Data generator works — `python -m rippletwin.data.generate`
 - [x] Preprocessing works — windowing + baseline scoring
 - [x] Shadow-sensing implemented — two mechanisms, not a diagram
-- [x] Baselines work — B0, B1, B2, all calibrated to a matched false-alarm rate
+- [x] Baselines work — B0 SPC, B1 anomaly, B2 observed-only twin, **B3 Turning
+      Point Method (Li, Chang & Ni 2009)** — all at a matched false-alarm rate
+- [x] Prior art cited, not claimed — `docs/REFERENCES.md`
+- [x] Sensor-placement guidance implemented and directionally validated
 - [x] Evaluation works — 110 held-out episodes, 4 coverage levels
 - [x] Results reproducible — fixed seeds; disjoint fit / calibration / test data
 - [x] Demo works — deterministic, `python demo/run_demo.py`
 - [x] Dashboard works — verified rendering in a browser, not just HTTP 200
 - [x] Explainability works — provenance-tagged, no LLM in the path
 - [x] Human-in-the-loop works — hash-chained ledger, tamper test passes
-- [x] Tests pass — 49/49
+- [x] Tests pass — 62/62
 
 ## Repository hygiene
 
@@ -73,7 +76,10 @@ Every element the brief names for the proposal is covered:
 - [x] Failed designs documented rather than buried (`METHOD.md` §3)
 - [x] The under-powered metric reported as under-powered, not quietly dropped
 - [x] No claim of zero sensors, production readiness, or validated real-world ROI
-- [x] Where a baseline beats us (SPC at 100% coverage), we say so
+- [x] Where a baseline beats us, we say so — SPC at 100% coverage, and the
+      Turning Point Method's *detection* rate at 50% coverage
+- [x] The mechanism is credited to its authors, not presented as ours
+- [x] A hallucinated citation was caught and excluded (see REFERENCES.md)
 
 ## Manual steps remaining
 

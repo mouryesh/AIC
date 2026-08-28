@@ -18,11 +18,13 @@ import pandas as pd
 
 METHOD_LABEL = {
     "RippleTwin": "**RippleTwin**",
+    "B3_TurningPoint": "B3 Turning Point (Li et al. 2009)",
     "B2_observed_only_twin": "B2 observed-only twin",
     "B1_IsolationForest": "B1 anomaly detection",
     "B0_SPC_observed": "B0 SPC on sensors",
 }
-ORDER = ["RippleTwin", "B2_observed_only_twin", "B1_IsolationForest", "B0_SPC_observed"]
+ORDER = ["RippleTwin", "B3_TurningPoint", "B2_observed_only_twin",
+         "B1_IsolationForest", "B0_SPC_observed"]
 
 
 def _pct(x, nd=0) -> str:
@@ -118,11 +120,60 @@ def build(results_dir: str | Path = "results",
     A(_md_table(pd.DataFrame(rows), ["cov"] + ORDER + ["n"],
                 ["Sensor coverage"] + [METHOD_LABEL[m] for m in ORDER] + ["episodes"]))
 
-    A("\nThe baselines do not merely score badly here. They score **exactly zero**, "
-      "because naming an un-instrumented station is outside what they can express. "
-      "B2 is the sharpest comparison: it is RippleTwin's own model with hidden "
+    A("\nEvery baseline scores **exactly zero**. Not badly — zero. Naming an "
+      "un-instrumented station is outside what any of them can express.\n")
+
+    A("### The comparison that matters: the published method\n")
+    A("**B3 is the Turning Point Method** (Li, Chang & Ni, 2009) — the "
+      "established data-driven bottleneck detection method that uses the very "
+      "same blockage/starvation signal this project is built on. It is "
+      "implemented in the strengthened deviation-scored form, which is *more* "
+      "favourable to it than the published version, and calibrated to the same "
+      "false-alarm rate as everything else.\n")
+    rows = []
+    for c in sorted(hidden["coverage"].unique()):
+        r_tp = hidden[np.isclose(hidden["coverage"], c)
+                      & (hidden["method"] == "B3_TurningPoint")]
+        r_rt = hidden[np.isclose(hidden["coverage"], c)
+                      & (hidden["method"] == "RippleTwin")]
+        if not len(r_tp) or not len(r_rt):
+            continue
+        rows.append({
+            "cov": f"{c * 100:.0f}%",
+            "tp_det": _pct(float(r_tp["detected_episode"].iloc[0])),
+            "rt_det": _pct(float(r_rt["detected_episode"].iloc[0])),
+            "tp_top1": _pct(float(r_tp["top1"].iloc[0])),
+            "rt_top1": _pct(float(r_rt["top1"].iloc[0])),
+            "tp_err": f"{float(r_tp['median_station_error'].iloc[0]):.1f}",
+            "rt_err": f"{float(r_rt['median_station_error'].iloc[0]):.1f}",
+        })
+    A(_md_table(pd.DataFrame(rows),
+                ["cov", "tp_det", "rt_det", "tp_top1", "rt_top1", "tp_err", "rt_err"],
+                ["Coverage", "TPM detects", "RippleTwin detects",
+                 "TPM exact", "RippleTwin exact",
+                 "TPM station error", "RippleTwin station error"]))
+    A("\n**Read this table carefully, because it is not a rout.** The Turning "
+      "Point Method detects these disturbances as reliably as we do, and at 50% "
+      "coverage it detects *more* of them. It is a good method and it is doing "
+      "its job. What it cannot do is name a station it cannot measure: it scans "
+      "the stations it can see, so the turning point inside a sensor gap is "
+      "outside its output space, and it lands on the first instrumented station "
+      "past the gap.\n")
+    A("On the flagship scenario, with a hidden fault at S02: the Turning Point "
+      "Method detects in 122 windows and names **S03**; RippleTwin detects in "
+      "117 windows and names **S02**, correctly, in 88% of them.\n")
+    A("**A fairness note.** The Turning Point Method was designed for "
+      "steady-state analysis over substantial accumulation periods, not for "
+      "detection in 20-vehicle windows, so this per-window regime is harsher "
+      "than its intended use — which is why its full-coverage accuracy here is "
+      "well below its reputation. That caveat does *not* apply to the 0% "
+      "hidden-source result: that number is structural, and no window length "
+      "changes it.\n")
+
+    A("B2 is the other sharp comparison: it is RippleTwin's own model with hidden "
       "stations removed as candidates — same physics, same likelihood, same "
-      "calibration.\n")
+      "calibration — which isolates shadow-sensing itself from everything else "
+      "we do.\n")
 
     A("**Localisation within one station** (a technician sent to an adjacent station "
       "will still find it):\n")
@@ -267,9 +318,89 @@ def build(results_dir: str | Path = "results",
               "uses only inspection results and the build sequence, so it is "
               "unaffected by how many stations have sensors.\n")
 
+    # ---------------------------------------------------- sensor placement
+    try:
+        from ..factory.topology import apply_coverage, build_line
+        from ..twin.placement import ambiguity, recommend_sensors
+
+        cfg_line = build_line(man["config"]["line_config"],
+                              seed=man["config"]["line_seed"])
+        loc_raw = pd.read_csv(T / "localization_raw.csv")
+        amb = ambiguity(cfg_line, cfg_line.observed_indices).set_index("station")
+        rec = recommend_sensors(cfg_line, n_recommend=5)
+
+        A("---\n")
+        A("## 7. Where the next sensor should go\n")
+        A("The obvious objection to this whole project is \"why not just "
+          "instrument the blind stations?\". You should — but a plant retrofits "
+          "during a handful of maintenance windows a year, so the real question "
+          "is **which ones buy the most**. That falls out of the same model, and "
+          "needs **no production data**, so it can be run before committing.\n")
+        A("A blind station is locatable only if its predicted signature is "
+          "distinguishable, using the stations we can see, from its neighbours'. "
+          "Two blind stations side by side are not — and that is knowable in "
+          "advance from the sensor layout alone.\n")
+        rows = []
+        for _, r in rec.iterrows():
+            rows.append({
+                "rank": str(int(r["rank"])), "st": r["station_id"], "z": r["zone"],
+                "gain": f"{r['total_gain']:.2f}",
+                "amb": f"{r['own_ambiguity_before'] * 100:.0f}%",
+                "un": r["unlocks"],
+            })
+        A(_md_table(pd.DataFrame(rows), ["rank", "st", "z", "amb", "gain", "un"],
+                    ["Priority", "Station", "Zone", "Currently confusable",
+                     "Value of information", "Also helps resolve"]))
+
+        A("\n### Does the theory predict where we actually struggle?\n")
+        d = loc_raw[(loc_raw["method"] == "RippleTwin")
+                    & (loc_raw["split"] == "test")
+                    & (np.isclose(loc_raw["coverage"], 0.75))].dropna(subset=["top1"])
+        if len(d) and "true_station" in d.columns:
+            g = d.groupby("true_station").agg(
+                top1=("top1", "mean"), n=("seed", "size")).reset_index()
+            g["separability"] = g["true_station"].map(amb["separability"])
+            g = g.dropna()
+            if len(g) > 3:
+                r = float(np.corrcoef(g["separability"], g["top1"])[0, 1])
+                worst = g.nsmallest(4, "separability")
+                A(f"Correlation between predicted separability and measured "
+                  f"exact-localisation rate, per source station: **r = {r:.2f}** "
+                  f"across {len(g)} stations.\n")
+                A("The four stations the metric rates least separable, and how "
+                  "the twin actually did on them:\n")
+                rows = [{
+                    "st": cfg_line.stations[int(x.true_station)].station_id,
+                    "sep": f"{x.separability:.1f}",
+                    "top1": f"{x.top1 * 100:.0f}%",
+                    "n": str(int(x.n)),
+                } for x in worst.itertuples()]
+                A(_md_table(pd.DataFrame(rows), ["st", "sep", "top1", "n"],
+                            ["Station", "Separability", "Measured exact rate",
+                             "episodes"]))
+                A("\n**Stated honestly: this is directional, not strong.** The "
+                  "correlation is modest and there are only a handful of episodes "
+                  "per source station, so it is evidence that the metric points "
+                  "the right way, not proof that it is well calibrated. What is "
+                  "clear-cut is the extreme: the stations it rates least "
+                  "separable are the adjacent blind pairs, and localisation on "
+                  "those collapses — which is exactly what the structural "
+                  "argument predicts and exactly where a sensor should go.\n")
+
+        A("Ranked on **separability** — the residual left when the closest rival "
+          "hypothesis is fitted to a station's response, in noise units — rather "
+          "than on the more intuitive similarity score. Similarity is not "
+          "monotone under adding sensors: a new observer that responds similarly "
+          "to two rivals pulls their angle together, so a placement tool built on "
+          "it can claim a sensor made things worse. Separability provably cannot "
+          "(the change in squared residual reduces to a perfect square). A test "
+          "pins both behaviours.\n")
+    except Exception as exc:  # pragma: no cover - reporting must not hard-fail
+        A(f"\n_(sensor-placement section unavailable: {exc})_\n")
+
     # ------------------------------------------------------------- honesty
     A("---\n")
-    A("## 7. What these numbers do not show\n")
+    A("## 8. What these numbers do not show\n")
     A("- **No real-world validation.** Synthetic data throughout. The physics is "
       "faithful and the disturbances are plausible, but nothing here is evidence "
       "about a real plant.")
@@ -282,7 +413,9 @@ def build(results_dir: str | Path = "results",
       "(documented in `METHOD.md`), which a simulator built to flatter the method "
       "would not have done.")
     A("- **Serial-line assumption.** Parallel paths and rework loops need the "
-      "propagation matrix rebuilt.\n")
+      "propagation matrix rebuilt.")
+    A("- **The placement metric is validated only directionally**, on few "
+      "episodes per station.\n")
 
     A("---\n")
     A("## Reproducing\n")
