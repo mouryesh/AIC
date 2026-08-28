@@ -41,7 +41,11 @@ import pandas as pd
 import yaml
 
 from .plant_data import PlantData
-from .states import attribute_states_to_vehicles, close_state_intervals
+from .states import (
+    attribute_states_to_vehicles,
+    close_state_intervals,
+    state_log_coverage,
+)
 
 
 @dataclass
@@ -251,6 +255,7 @@ def load_plant_export(spec: PlantExportSpec) -> PlantData:
     telemetry = spec.read("telemetry")
     states = spec.read("states")
     scans = spec.read("scans")
+    state_cov = None
 
     # One epoch for the whole export. Every file must be measured from the same
     # zero or the cross-file joins below are meaningless -- see _to_seconds.
@@ -278,6 +283,9 @@ def load_plant_export(spec: PlantExportSpec) -> PlantData:
         scans = _to_seconds(scans, "t_s", spec.time_scale, epoch)
         closed = close_state_intervals(states)
         telemetry = attribute_states_to_vehicles(closed, scans)
+        # Checked here because it needs both inputs, which only exist at this
+        # point. A truncated state log otherwise reads as a healthy line.
+        state_cov = state_log_coverage(closed, scans)
 
     if vehicles is None:
         # Derivable: the build sequence is implied by the order units entered
@@ -314,6 +322,9 @@ def load_plant_export(spec: PlantExportSpec) -> PlantData:
             # code rather than our positional index.
             "station_map": station_map,
             "station_order_supplied": bool(spec.station_order),
+            # How much of each station's producing period the state log covers.
+            # A truncated log otherwise reads as a healthy line.
+            "state_log_coverage": state_cov,
             "n_units": len(vehicle_map),
         },
     )

@@ -267,3 +267,53 @@ def test_supplying_the_station_order_removes_the_placement_guess(run, line):
     line2, named = infer_line(d2, takt_s=60.0, station_order=order)
     assert not any("evenly" in a for a in named)
     assert line2.n_stations == 42
+
+
+# ------------------------------------------------- the silent-truncation bug
+
+
+def test_a_truncated_state_log_is_a_blocker(run):
+    """Missing state rows contribute ZERO blocked/starved time, so a truncated
+    export looks like a healthy line rather than a broken one.
+
+    Found by feeding the pilot a state log cut to 6% of its rows: the verdict
+    came back USABLE with no warnings and it issued confident work orders
+    naming the wrong station. Nothing raised an exception.
+    """
+    from rippletwin.ingest.states import state_log_coverage
+
+    tel = run.telemetry
+    states, scans = _historian(tel)
+    closed = close_state_intervals(states)
+
+    full = state_log_coverage(closed, scans)
+    assert full["coverage"].median() > 0.9
+
+    # Keep only the earliest 10% of state changes, as a cut-off export would.
+    cut = closed.sort_values("t0").head(max(1, len(closed) // 10))
+    thin = state_log_coverage(cut, scans)
+    assert thin["coverage"].median() < 0.5
+
+    data = PlantData.from_frames(
+        telemetry=attribute_states_to_vehicles(cut, scans),
+        vehicles=run.vehicles,
+        meta={"state_log_coverage": thin},
+    )
+    rep = data.validate(n_stations=42, takt_s=60.0)
+    assert not rep.ok
+    assert any(i.code == "STATE_LOG_TRUNCATED" for i in rep.blockers)
+
+
+def test_complete_state_log_raises_no_coverage_issue(run):
+    from rippletwin.ingest.states import state_log_coverage
+
+    states, scans = _historian(run.telemetry)
+    closed = close_state_intervals(states)
+    data = PlantData.from_frames(
+        telemetry=attribute_states_to_vehicles(closed, scans),
+        vehicles=run.vehicles,
+        meta={"state_log_coverage": state_log_coverage(closed, scans)},
+    )
+    rep = data.validate(n_stations=42, takt_s=60.0)
+    assert rep.ok
+    assert not any("STATE_LOG" in i.code for i in rep.issues)
