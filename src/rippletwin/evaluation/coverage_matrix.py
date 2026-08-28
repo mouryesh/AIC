@@ -80,7 +80,7 @@ def run_coverage_matrix(
         strategies = ["random"] if coverage >= 0.999 else list(cfg.strategies)
         for strategy in strategies:
             view = (
-                configured if coverage >= 0.999
+                full_observability(configured) if coverage >= 0.999
                 else apply_coverage(configured, coverage, seed=11, strategy=strategy)
             )
             nom_v = telemetry_view(nominal_full, view, sim_line)

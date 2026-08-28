@@ -36,7 +36,7 @@ Every element the brief names for the proposal is covered:
 | Area | Covered |
 |---|---|
 | Modelling approach — what to represent vs infer | ✅ explicit OBSERVED / INFERRED / PREDICTED split |
-| Predictive techniques + how you'd validate before trusting output | ✅ 4 baselines at matched FPR **including the published Turning Point Method**, coverage sweep, 62 tests |
+| Predictive techniques + how you'd validate before trusting output | ✅ 4 baselines at matched FPR **including the published Turning Point Method**, coverage sweep, 204 tests |
 | Handling data gaps at sensor-poor stations | ✅ the core mechanism |
 | Distinct views for supervisor / plant manager / leadership | ✅ three dashboard views |
 | Integration around legacy PLCs without disrupting production | ✅ read-only; no PLC writes anywhere |

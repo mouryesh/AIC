@@ -321,7 +321,7 @@ clean lines and abstains when ambiguous.
 The factory is simulated — the line, the disturbances, the defects. Everything
 downstream is real, running code: feature construction, the estimator,
 calibration, baselines, evaluation, explanation, recommendation, ledger,
-dashboard. 49 tests pass. No result in this repo is hard-coded.
+dashboard. 204 tests pass. No result in this repo is hard-coded.
 
 **27. What are the baselines, and are they fair?**
 B0 SPC per station, B1 Isolation Forest on the same features, B2 our own flow

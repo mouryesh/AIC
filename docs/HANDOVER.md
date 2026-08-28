@@ -90,7 +90,7 @@ cannot drift from the evidence. Full rebuild (~35 min, dominated by the
 experiment):
 
 ```bash
-pytest -q                                     # 124 tests
+pytest -q                                     # 204 tests
 
 python -c "import sys;sys.path.insert(0,'src');\
 from rippletwin.evaluation.experiments import run_experiment;run_experiment()"

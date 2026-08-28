@@ -3,8 +3,9 @@
 **See the bottleneck before it arrives — even at the stations you can't instrument.**
 
 A predictive digital twin for a mixed-model vehicle assembly line that infers the
-state of stations which have **no sensor at all**, by exploiting the fact that
-the stations around them are physically coupled to them.
+state of stations which have **no sensor at all**, and predicts emerging
+bottlenecks and defects before they cost output — even when sensor coverage
+is incomplete, sensors fail mid-shift, or the line isn't a straight chain.
 
 Accenture Innovation Challenge 2026 · Round 2 · Track 4 — **DigitalTwin.ai**
 
@@ -13,6 +14,57 @@ Accenture Innovation Challenge 2026 · Round 2 · Track 4 — **DigitalTwin.ai**
 > **Every result in this repository is a simulated prototype result on synthetic
 > data.** We have never had access to a real production line. Nothing here is a
 > measurement of, or a validated claim about, any real plant.
+
+---
+
+## 60-second overview
+
+**Problem.** Real assembly lines mix legacy and modern equipment: some
+stations are richly instrumented, some rely on manual checklists, and
+retrofits are limited to a handful of maintenance windows a year. A digital
+twin built only on measured data is blind exactly where problems most often
+start.
+
+**Solution.** RippleTwin infers the state of stations it cannot measure from
+the physics of material flow at the stations it can, then turns that
+inference into a *predictive* layer — a graded risk state that rises before
+a constraint actually binds, a per-vehicle defect-risk score computed before
+any inspection gate looks, and a forecast of what happens next if nothing
+changes.
+
+**Differentiator.** The localisation is physics (conservation of material
+through the line), not a learned correlation — so it degrades gracefully
+under missing or failing sensors instead of guessing, generalises to
+non-serial topologies without a new algorithm per plant, and says so
+explicitly when the evidence cannot separate two candidates.
+
+**Results.** On the flagship 42-station line: **69% exact-station
+localisation** of hidden-station faults at 75% coverage where every baseline
+scores 0%; identical accuracy to an observed-only twin at 100% coverage
+(the advantage appears exactly and only where instrumentation is missing);
+confidence that measurably degrades under sensor dropout (0.86→0.36) without
+becoming confidently wrong; the same unmodified inference engine reaching
+100%/100% detection and within-1 localisation on two genuinely non-serial
+demonstration topologies. Full numbers: [docs/RESULTS.md](docs/RESULTS.md),
+requirement-by-requirement: [docs/ROUND2_SCORECARD.md](docs/ROUND2_SCORECARD.md).
+
+**Demo.** `python demo/run_demo.py` (deterministic, ~60s) or
+`python demo/run_streaming_demo.py` (a paced, window-by-window replay) or
+`streamlit run app/dashboard.py` (three stakeholder views). See
+[Quickstart](#quickstart).
+
+---
+
+## Why RippleTwin?
+
+It estimates hidden production state from downstream effects when direct
+instrumentation is incomplete — and, on top of that, estimates *where that
+state is heading*: an early-warning state ladder that gives real lead time
+before a bottleneck binds, a defect-risk score before an inspection gate
+finds anything, honest confidence that responds to actual evidence quality
+(including when a sensor itself is failing), and a decision loop where a
+human's validated outcome measurably updates what the system trusts next
+time.
 
 ---
 
@@ -93,7 +145,7 @@ Full positioning and citations: [docs/REFERENCES.md](docs/REFERENCES.md).
 | Differentiation | claimed | measured against **4 baselines including the published Turning Point Method**, all at a matched false-alarm rate |
 | "Works with partial sensors" | claimed | a coverage sweep from 100% → 25% instrumentation |
 | Human in the loop | in the diagram | hash-chained decision ledger, abstention when ambiguous |
-| Evidence | none | 110 held-out episodes, 124 passing tests, reproducible from a seed |
+| Evidence | none | 110 held-out episodes, 204 passing tests, reproducible from a seed |
 | "No new hardware" | claimed | and when hardware *is* worth buying, it says **which station** |
 
 Round 1 argued the idea was worth testing. This repository is the test —
@@ -251,11 +303,20 @@ limit. Point it at this repository with:
 No secrets and no environment variables are required — the app generates all of
 its own data from a fixed seed.
 
-**Reproduce the evaluation** (~25 min):
+**Reproduce the flagship evaluation** (~25 min):
 
 ```bash
 python -c "import sys;sys.path.insert(0,'src');from rippletwin.evaluation.experiments import run_experiment;run_experiment()"
 python -c "import sys;sys.path.insert(0,'src');from rippletwin.evaluation.figures import build_all;build_all()"
+```
+
+**Reproduce the Round 2 predictive/robustness experiments** (~5-6 min) — early
+warning, defect prediction, sensor coverage matrix, distribution shift,
+calibration, topology generalization, feedback loop, surge test:
+
+```bash
+PYTHONPATH=src python -m rippletwin.evaluation.run_round2
+PYTHONPATH=src python -m rippletwin.evaluation.report   # regenerates docs/RESULTS.md and docs/RESULTS_ROUND2.md
 ```
 
 **Run the tests:**
@@ -565,54 +626,83 @@ draft for sign-off and why the model backend exists.
 
 ## Limitations
 
-We would rather state these than have them found.
+We would rather state these than have them found. This is the short list;
+**[docs/LIMITATIONS.md](docs/LIMITATIONS.md) has the full one**, including
+every scoping decision made in the Round 2 predictive/robustness upgrade.
 
 1. **Everything is synthetic.** The physics is faithful and the disturbances are
    plausible, but nothing here is validated against a real line. That is the
    first thing a pilot must establish.
-2. **Serial-line assumption.** The propagation pattern assumes one directed
-   path. Parallel sub-lines, rework loops and merge/split points need the
-   pattern matrix rebuilt from the real process graph.
+2. **Non-serial topology support has real scoping limits.** The propagation
+   matrices and forecast now generalize to parallel branches, merges and a
+   rework spur (`factory/topology.py`'s graph methods,
+   `factory/graph_simulator.py`), but the demonstration simulator processes
+   vehicles in global release order even across merges — adequate for the
+   two short, similar-latency demo topologies shipped here, not claimed
+   exact for branches of very different length. See
+   `docs/LIMITATIONS.md` items 6-8.
 3. **Adjacent blind stations are not separable.** Two hidden stations side by
    side cannot be told apart by flow evidence. The system says so and abstains.
 4. **The constraint must bind.** A station that slows but stays inside takt
-   creates no starvation, so there is nothing to localise. Reported as "watch",
-   not dressed up as a detection.
+   creates no starvation, so there is nothing to localise yet — reported as
+   `WATCH`/`DEGRADING` (the early-warning ladder), not dressed up as a
+   confident detection.
 5. **Quality attribution is a shortlist**, not a verdict, and it is slower than
-   the flow path because defects are rare.
-6. **Lead-time evidence is under-powered.** Most faults never reach the
-   production board, so the metric is defined on few episodes. We report the
-   visibility finding instead of a lead-time headline it cannot support.
+   the flow path because defects are rare. The new predictive defect-risk
+   score shares this weakness and has a real coverage gap of its own: a
+   MANUAL station emits no process telemetry at all, so there is nothing to
+   score there, for anyone, ever (`twin/defect_risk.py::coverage_gap_report`).
+6. **Lead-time evidence is under-powered on the flagship line.** Most faults
+   never reach the production board, so that metric is defined on few
+   episodes. The new early-warning lead-time metric
+   (`evaluation/early_warning.py`) uses a tighter, model-internal reference
+   instead and reports both successes and misses.
 7. **The ROI model rests on contribution margin.** On a line that is not
    capacity-constrained, the throughput driver largely collapses.
+8. **The feedback loop's effect on headline accuracy is not established** at
+   the sample sizes used in `evaluation/feedback_experiment.py` — the
+   mechanism works (a validated station's posterior measurably moves); the
+   aggregate-accuracy claim is reported honestly as "no measurable change"
+   rather than assumed.
 
 ---
 
 ## Repository layout
 
 ```
-configs/line_42.yaml          the line: zones, buffers, variants, sensor tiers
+configs/line_42.yaml          the flagship line: zones, buffers, variants, sensor tiers
+configs/plant_b_parallel.yaml a small parallel-branch demonstration topology
+configs/plant_c_rework.yaml   a small rework-spur demonstration topology
 src/rippletwin/
-  factory/topology.py         stations, buffers, instrumentation, failure modes
+  factory/topology.py         stations, buffers, instrumentation, + graph/Edge methods
   factory/simulator.py        serial-line flow physics + defect propagation
-  factory/scenarios.py        the five named scenarios + episode corpora
+  factory/graph_simulator.py  a smaller simulator for non-serial demo topologies
+  factory/sensor_health.py    dynamic DROPOUT/INTERMITTENT/NOISY/STALE faults
+  factory/scenarios.py        nine named scenarios + the A-L stress-scenario suite
   features/windows.py         vehicle-indexed windowing
   features/baseline.py        nominal expectations and deviation channels
-  twin/shadow.py              SHADOW-SENSING: hidden-state estimation
+  twin/shadow.py              SHADOW-SENSING: hidden-state estimation (+ graph dispatch)
+  twin/predict.py             early bottleneck prediction: the 6-state risk ladder
+  twin/defect_risk.py         predictive (pre-inspection) defect risk
   twin/genealogy.py           defect attribution to unmeasured stations
-  twin/propagate.py           forward ripple forecast (physics)
+  twin/propagate.py           forward ripple forecast (physics, + graph dispatch)
+  twin/feedback.py            validated outcomes -> per-station prior
+  twin/whatif.py              counterfactual "what if" projections
   twin/pipeline.py            what the model is allowed to see
   models/baselines.py         B0 SPC / B1 anomaly / B2 obs-only twin /
                               B3 Turning Point (Li et al. 2009) + matched-FPR
-  evaluation/                 metrics, experiments, coverage views, figures
+  evaluation/                 metrics, experiments, + one module per Round 2 capability
+  evaluation/run_round2.py    single entry point: regenerates every Round 2 table
   explain/ recommend/ hitl/   explanation, recommendation, decision ledger
-app/dashboard.py              three stakeholder views
+app/dashboard.py              three stakeholder views + predicted risk + what-if
 demo/run_demo.py              deterministic flagship demo
+demo/run_streaming_demo.py    paced, window-by-window replay
   twin/placement.py           where the next sensor should go
   integrate/contract.py       the input contract + Phase 0 readiness assessment
   recommend/dispatch.py       alert -> owned, time-bounded work order
-tests/                        124 tests, physics first
-docs/                         METHOD · RESULTS · BUSINESS_CASE · JUDGE_QA · DEMO_VIDEO
+tests/                        220+ tests, physics first
+docs/                         METHOD · RESULTS · ARCHITECTURE · LIMITATIONS ·
+                              ROUND2_SCORECARD · SIGNALS · BUSINESS_CASE · JUDGE_QA
 results/                      tables and figures, all generated
 ```
 
@@ -620,10 +710,14 @@ results/                      tables and figures, all generated
 
 | Document | What it covers |
 |---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | the full pipeline after the Round 2 upgrade, and exactly what dispatches on what |
+| [docs/ROUND2_SCORECARD.md](docs/ROUND2_SCORECARD.md) | every Round 2 brief requirement mapped to implementation and evidence |
 | [docs/METHOD.md](docs/METHOD.md) | the mechanism, prior art, the estimator, and the designs we killed |
+| [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | every scoping decision, old and new, with the reasoning behind it |
+| [docs/SIGNALS.md](docs/SIGNALS.md) | every telemetry channel: what it represents, what failure it detects, who consumes it |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | what we need from a plant, where the software sits, and who acts |
 | [docs/REFERENCES.md](docs/REFERENCES.md) | what is prior art, what is ours, and how to check |
-| [docs/RESULTS.md](docs/RESULTS.md) | every table, with metric definitions |
+| [docs/RESULTS.md](docs/RESULTS.md) | every flagship table, with metric definitions |
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | value drivers, ROI arithmetic, sensor economics, risks |
 | [docs/JUDGE_QA.md](docs/JUDGE_QA.md) | 33 hard questions, answered |
 | [docs/DEMO_VIDEO.md](docs/DEMO_VIDEO.md) | storyboard and narration |

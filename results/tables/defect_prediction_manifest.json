@@ -1,0 +1,39 @@
+{
+  "generated_by": "rippletwin.evaluation.defect_prediction.run_defect_prediction_experiment",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "nominal_vehicles": 2600,
+    "calibration_vehicles": 2200,
+    "n_episodes": 14,
+    "episode_vehicles": 1200,
+    "risk_threshold": 0.5,
+    "episode_seed_base": 8000
+  },
+  "n_manual_stations_no_coverage": 10,
+  "summary": {
+    "n_rows": 38400.0,
+    "n_true_defects": 157.92857142857142,
+    "model_brier": 0.0160758360625893,
+    "model_tp": 2.0714285714285716,
+    "model_fp": 407.7142857142857,
+    "model_fn": 155.85714285714286,
+    "model_tn": 37834.357142857145,
+    "model_precision": 0.00467183617466766,
+    "model_recall": 0.013534479167650557,
+    "model_f1": 0.007906827388564555,
+    "model_fpr": 0.010661085663925875,
+    "naive_tp": 7.285714285714286,
+    "naive_fp": 1192.7142857142858,
+    "naive_fn": 150.64285714285714,
+    "naive_tn": 37049.357142857145,
+    "naive_precision": 0.0060714285714285705,
+    "naive_recall": 0.045937578515286216,
+    "naive_f1": 0.010709907772827956,
+    "naive_fpr": 0.031188531001004934,
+    "n_episodes": 14,
+    "n_episodes_with_true_defect": 14
+  },
+  "runtime_s": 29.6
+}

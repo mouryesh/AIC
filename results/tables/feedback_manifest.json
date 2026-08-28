@@ -1,0 +1,31 @@
+{
+  "generated_by": "rippletwin.evaluation.feedback_experiment.run_feedback_experiment",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "nominal_vehicles": 2200,
+    "calibration_vehicles": 1800,
+    "n_episodes": 14,
+    "episode_vehicles": 1200,
+    "episode_seed_base": 9200
+  },
+  "mechanism_check": {
+    "good_station_id": "S02",
+    "bad_station_id": "S08",
+    "window_checked": 160,
+    "posterior_on_good_station_before_feedback": 0.8913095588184448,
+    "posterior_on_good_station_after_feedback": 0.9348566959877777,
+    "moved_in_expected_direction": true,
+    "weights": {
+      "1": 1.75,
+      "7": 0.625
+    }
+  },
+  "headline_top1_baseline": 0.710801393728223,
+  "headline_top1_with_feedback": 0.710801393728223,
+  "headline_delta": 0.0,
+  "honest_verdict": "NO MEASURABLE CHANGE",
+  "caveat": "n=14 episodes per regime -- a headline delta this size is not a statistically powered claim either way. Reported as measured.",
+  "runtime_s": 22.6
+}

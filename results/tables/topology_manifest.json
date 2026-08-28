@@ -1,0 +1,57 @@
+{
+  "generated_by": "rippletwin.evaluation.topology_experiment.run_topology_experiment",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "plants": [
+    {
+      "name": "Plant A (serial, flagship)",
+      "config": "configs/line_42.yaml",
+      "seed": 7,
+      "is_graph": false
+    },
+    {
+      "name": "Plant B (parallel branch)",
+      "config": "configs/plant_b_parallel.yaml",
+      "seed": 7,
+      "is_graph": true
+    },
+    {
+      "name": "Plant C (rework spur)",
+      "config": "configs/plant_c_rework.yaml",
+      "seed": 7,
+      "is_graph": true
+    }
+  ],
+  "n_episodes_per_plant": 8,
+  "summary": [
+    {
+      "plant": "Plant A (serial, flagship)",
+      "n_episodes": 8,
+      "detection_rate": 0.7591384176252597,
+      "top1": 0.876565065681445,
+      "within1": 0.9321428571428572,
+      "mean_confidence": 0.946189474741097,
+      "false_alarm_rate": 0.031012623103635503,
+      "mean_infer_latency_s": 0.15342611074447632
+    },
+    {
+      "plant": "Plant B (parallel branch)",
+      "n_episodes": 8,
+      "detection_rate": 0.5,
+      "top1": 0.9457133399536577,
+      "within1": 1.0,
+      "mean_confidence": 0.9557368247760966,
+      "false_alarm_rate": 0.028113216867748963,
+      "mean_infer_latency_s": 0.11410820484161377
+    },
+    {
+      "plant": "Plant C (rework spur)",
+      "n_episodes": 8,
+      "detection_rate": 0.5013736263736264,
+      "top1": 0.8,
+      "within1": 0.8,
+      "mean_confidence": 0.8610130334508781,
+      "false_alarm_rate": 0.026667630324997752,
+      "mean_infer_latency_s": 0.11207455396652222
+    }
+  ]
+}

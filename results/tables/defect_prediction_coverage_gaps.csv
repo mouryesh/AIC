@@ -1,0 +1,11 @@
+station_id,zone,reason
+S02,BODY,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S08,BODY,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S10,BODY,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S18,PAINT,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S27,FINAL,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S32,FINAL,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S33,FINAL,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S35,FINAL,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S37,FINAL,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)
+S38,FINAL,no process telemetry at all -- predictive defect risk cannot be scored here (post-hoc attribution via twin.genealogy still works once a defect is found downstream)

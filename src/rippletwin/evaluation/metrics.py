@@ -330,6 +330,20 @@ def evaluate_early_warning(
             "n_false_alarm_windows": int(len(elevated)),
         }
 
+    # Diagnostic only, never the headline: the first elevated state at ANY
+    # station, not required to name the right one. Comparing this against
+    # the correctly-localised lead time below separates two different
+    # claims -- "the twin senses something is changing" vs. "the twin can
+    # already say where" -- rather than letting one silently stand in for
+    # the other.
+    lo = truth.t_start_s - 3600.0
+    hi = truth.t_end_s
+    elevated_in_window = elevated[(elevated["t_mid_s"] >= lo) & (elevated["t_mid_s"] <= hi)]
+    first_any_t = float(elevated_in_window["t_mid_s"].min()) if len(elevated_in_window) else None
+    lead_time_any_station_min = (
+        (true_onset_s - first_any_t) / 60.0 if (true_onset_s is not None and first_any_t is not None) else np.nan
+    )
+
     correctly_localised = elevated[
         elevated["station"].notna()
         & (np.abs(elevated["station"].astype(float) - truth.station) <= 1)
@@ -338,8 +352,6 @@ def evaluate_early_warning(
     # onset for the pre-alarm to count) so a WATCH raised during an unrelated
     # part of a long run isn't credited to this fault.
     if len(correctly_localised):
-        lo = truth.t_start_s - 3600.0
-        hi = truth.t_end_s
         correctly_localised = correctly_localised[
             (correctly_localised["t_mid_s"] >= lo) & (correctly_localised["t_mid_s"] <= hi)
         ]
@@ -350,6 +362,7 @@ def evaluate_early_warning(
             "missed": 1.0,
             "false_alarm": 0.0,
             "lead_time_min": np.nan,
+            "lead_time_any_station_min": lead_time_any_station_min,
         }
 
     first_t = float(correctly_localised["t_mid_s"].min())
@@ -358,6 +371,7 @@ def evaluate_early_warning(
         "missed": 0.0,
         "false_alarm": 0.0,
         "first_warning_t_s": first_t,
+        "lead_time_any_station_min": lead_time_any_station_min,
     }
     if true_onset_s is not None:
         out["lead_time_min"] = (true_onset_s - first_t) / 60.0
