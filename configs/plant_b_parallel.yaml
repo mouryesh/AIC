@@ -1,0 +1,77 @@
+# RippleTwin — Plant B: serial line + one parallel station pair
+#
+# A small (12-station) topology-generalization demonstrator: mostly serial,
+# with a genuine split (station 3 -> stations 4, 5 in parallel) and a merge
+# (stations 4, 5 -> station 6). Not another flagship line -- it exists to
+# prove the SAME inference engine (twin/shadow.py, twin/propagate.py) that
+# produces every result in results/tables/ also runs, unmodified, against a
+# topology that is not a strict chain. See docs/LIMITATIONS.md for the
+# scoping this accepts (factory/graph_simulator.py's module docstring).
+#
+# The zone id "BODY" is reused only because factory/topology.py's defect
+# profile table is keyed by {BODY, PAINT, FINAL}; the quality/defect path is
+# not exercised by this topology (GraphLineSimulator models flow only).
+# All values are ILLUSTRATIVE ASSUMPTIONS for a synthetic demonstrator line.
+
+line:
+  name: "Plant-B (synthetic, parallel branch)"
+  takt_seconds: 60.0
+  n_stations: 12
+
+zones:
+  - id: BODY
+    name: "Single zone (demo)"
+    station_count: 12
+    base_cycle_seconds: 55.0
+    cycle_spread: 0.10
+    internal_buffer: 3
+    process_noise_cv: 0.05
+    microstop_rate: 0.010
+    microstop_seconds: [8, 40]
+
+inter_zone_buffer: {}
+
+inspections: []
+
+variants:
+  - id: BASE
+    share: 1.0
+    work_factor: {BODY: 1.00}
+    defect_susceptibility: 1.00
+
+shifts:
+  - id: A
+    start_hour: 0
+    hours: 24
+    operator_factor: 1.00
+    operator_cv: 0.030
+
+sensing:
+  rich_fraction: 0.25
+  basic_fraction: 0.50
+  manual_fraction: 0.25
+  manual_bias_zones: {BODY: 1.0}
+
+environment:
+  ambient_temp_c: {mean: 22.0, daily_amplitude: 3.0, noise: 0.5}
+  humidity_pct: {mean: 50.0, daily_amplitude: 8.0, noise: 2.0}
+  paint_humidity_sensitivity: 0.0
+
+# Explicit process graph. Station indices are 0-based, in the order the
+# zones list above generates them (12 stations, all zone "BODY").
+#   0 -> 1 -> 2 -> 3 -> {4, 5} -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
+# Station 3 splits into the parallel pair (4, 5); station 6 merges them.
+topology:
+  edges:
+    - {from: 0, to: 1, buffer: 3}
+    - {from: 1, to: 2, buffer: 3}
+    - {from: 2, to: 3, buffer: 3}
+    - {from: 3, to: 4, buffer: 3}
+    - {from: 3, to: 5, buffer: 3}
+    - {from: 4, to: 6, buffer: 3}
+    - {from: 5, to: 6, buffer: 3}
+    - {from: 6, to: 7, buffer: 3}
+    - {from: 7, to: 8, buffer: 3}
+    - {from: 8, to: 9, buffer: 3}
+    - {from: 9, to: 10, buffer: 3}
+    - {from: 10, to: 11, buffer: 1000000}

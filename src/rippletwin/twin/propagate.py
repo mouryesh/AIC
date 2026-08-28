@@ -110,23 +110,54 @@ def forecast_ripple(
     upstream: List[str] = []
 
     if is_binding and deficit_per_s > 0:
-        # Downstream: the buffer out of the constraint drains at the deficit rate.
-        if station < line.n_stations - 1:
-            lvl = level_of(station)
-            mins_starve = float(lvl / deficit_per_s / 60.0)
-            cum = lvl
-            for i in range(station + 1, min(line.n_stations, station + 1 + max_affected)):
-                downstream.append(line.stations[i].station_id)
-                if i < line.n_stations - 1:
-                    cum += level_of(i)
+        if line.is_graph:
+            # Graph case: walk the dominant (first, by station index) branch
+            # at each split/merge rather than enumerating every branch --
+            # a documented simplification (see docs/LIMITATIONS.md), not an
+            # attempt at an exhaustive multi-branch forecast.
+            nxt = line.successors(station)
+            if nxt:
+                lvl = level_of(station)
+                mins_starve = float(lvl / deficit_per_s / 60.0)
+                cur = nxt[0]
+                for _ in range(max_affected):
+                    downstream.append(line.stations[cur].station_id)
+                    nxt2 = line.successors(cur)
+                    if not nxt2:
+                        break
+                    cur = nxt2[0]
 
-        # Upstream: the buffer into the constraint fills at the same deficit rate.
-        if station > 0:
-            cap = float(min(line.stations[station - 1].out_buffer, 10**4))
-            room = max(0.0, cap - level_of(station - 1))
-            mins_block = float(room / deficit_per_s / 60.0)
-            for i in range(station - 1, max(-1, station - 1 - max_affected), -1):
-                upstream.append(line.stations[i].station_id)
+            prev = line.predecessors(station)
+            if prev:
+                p0 = prev[0]
+                cap = float(min(line.stations[p0].out_buffer, 10**4))
+                room = max(0.0, cap - level_of(p0))
+                mins_block = float(room / deficit_per_s / 60.0)
+                cur = p0
+                for _ in range(max_affected):
+                    upstream.append(line.stations[cur].station_id)
+                    prev2 = line.predecessors(cur)
+                    if not prev2:
+                        break
+                    cur = prev2[0]
+        else:
+            # Downstream: the buffer out of the constraint drains at the deficit rate.
+            if station < line.n_stations - 1:
+                lvl = level_of(station)
+                mins_starve = float(lvl / deficit_per_s / 60.0)
+                cum = lvl
+                for i in range(station + 1, min(line.n_stations, station + 1 + max_affected)):
+                    downstream.append(line.stations[i].station_id)
+                    if i < line.n_stations - 1:
+                        cum += level_of(i)
+
+            # Upstream: the buffer into the constraint fills at the same deficit rate.
+            if station > 0:
+                cap = float(min(line.stations[station - 1].out_buffer, 10**4))
+                room = max(0.0, cap - level_of(station - 1))
+                mins_block = float(room / deficit_per_s / 60.0)
+                for i in range(station - 1, max(-1, station - 1 - max_affected), -1):
+                    upstream.append(line.stations[i].station_id)
 
     return RippleForecast(
         station=station,

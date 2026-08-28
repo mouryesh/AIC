@@ -125,13 +125,65 @@ def buffer_distance_matrix(line: LineTopology) -> np.ndarray:
     station k -- the physically meaningful distance for disturbance propagation.
     Two stations three apart with a 14-slot inter-zone buffer between them are
     far more decoupled than two stations three apart inside body shop.
+
+    Dispatches on ``line.is_graph``: a plain serial line (the default, and
+    every previously-published result in this repository) runs the exact
+    prefix-sum computation this function has always used. A configured
+    process graph runs ``_graph_buffer_distance_matrix`` instead, which
+    reduces to the identical prefix-sum result on a chain but generalizes to
+    a DAG via shortest-path distance.
     """
+    if line.is_graph:
+        return _graph_buffer_distance_matrix(line)
     n = line.n_stations
     caps = np.array(
         [min(line.stations[i].out_buffer, 10**4) for i in range(n)], dtype=float
     )
     prefix = np.concatenate([[0.0], np.cumsum(caps[: n - 1])])
     return np.abs(prefix[:, None] - prefix[None, :])
+
+
+def _graph_buffer_distance_matrix(line: LineTopology) -> np.ndarray:
+    """Shortest-path distance using buffer capacity as edge weight, treating
+    edges as undirected for the purpose of distance (a buffer decouples two
+    stations regardless of which direction you measure across it in -- the
+    same symmetry ``|prefix[i] - prefix[k]|`` already has on a chain).
+
+    On a serial chain this is the unique-path sum, i.e. numerically identical
+    to the prefix-sum fast path; it is only reached at all when
+    ``line.is_graph`` is True, so the fast path is never displaced.
+    """
+    import heapq
+
+    n = line.n_stations
+    adj: Dict[int, List[Tuple[int, float]]] = {i: [] for i in range(n)}
+    for e in line.effective_edges():
+        w = float(min(e.buffer_capacity, 10**4))
+        adj[e.src].append((e.dst, w))
+        adj[e.dst].append((e.src, w))
+
+    D = np.full((n, n), np.inf)
+    for src in range(n):
+        dist = np.full(n, np.inf)
+        dist[src] = 0.0
+        pq: List[Tuple[float, int]] = [(0.0, src)]
+        visited = set()
+        while pq:
+            d, u = heapq.heappop(pq)
+            if u in visited:
+                continue
+            visited.add(u)
+            for v, w in adj[u]:
+                nd = d + w
+                if nd < dist[v]:
+                    dist[v] = nd
+                    heapq.heappush(pq, (nd, v))
+        D[src] = dist
+    # Unreachable pairs (a disconnected graph, not expected from any config
+    # this project ships) get a large-but-finite distance rather than inf,
+    # so downstream exp(-D/lambda) decays to ~0 instead of producing NaN.
+    D[~np.isfinite(D)] = 1e6
+    return D
 
 
 def propagation_matrices(
@@ -142,7 +194,14 @@ def propagation_matrices(
     Returns ``(B, S)`` where ``B[k, i]`` is the relative blocking induced at
     station ``i`` when ``k`` is the constraint (non-zero only upstream of k) and
     ``S[k, i]`` is the relative starvation (non-zero only downstream of k).
+
+    Dispatches on ``line.is_graph`` exactly as ``buffer_distance_matrix``
+    does. On a graph, "upstream of k" / "downstream of k" generalize from
+    ``i < k`` / ``i > k`` to ``i in line.ancestors(k)`` / ``i in
+    line.descendants(k)`` -- graph reachability rather than index comparison.
     """
+    if line.is_graph:
+        return _graph_propagation_matrices(line, cfg)
     n = line.n_stations
     D = buffer_distance_matrix(line)
     idx = np.arange(n)
@@ -151,6 +210,21 @@ def propagation_matrices(
 
     B = np.where(upstream, np.exp(-D / cfg.lambda_block), 0.0)
     S = np.where(downstream, np.exp(-D / cfg.lambda_starve), 0.0)
+    return B, S
+
+
+def _graph_propagation_matrices(
+    line: LineTopology, cfg: ShadowConfig
+) -> Tuple[np.ndarray, np.ndarray]:
+    n = line.n_stations
+    D = buffer_distance_matrix(line)
+    B = np.zeros((n, n))
+    S = np.zeros((n, n))
+    for k in range(n):
+        for i in line.ancestors(k):
+            B[k, i] = np.exp(-D[k, i] / cfg.lambda_block)
+        for i in line.descendants(k):
+            S[k, i] = np.exp(-D[k, i] / cfg.lambda_starve)
     return B, S
 
 
