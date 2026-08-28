@@ -229,6 +229,80 @@ def scenario_gradual_bottleneck(line: LineTopology, seed: int = 606) -> Scenario
     )
 
 
+def scenario_multiple_abnormalities(line: LineTopology, seed: int = 707) -> Scenario:
+    """S7 -- two independent disturbances active at once, at different
+    stations and of different kinds (a slowdown and a quality drift).
+
+    This is the master brief's stress scenario E: does the twin's flow and
+    quality paths each still find their own signal when the line is not
+    quietly obeying the "one fault at a time" assumption every other
+    scenario makes for clarity? Neither disturbance is a distractor for the
+    other -- both are real and both should be findable.
+    """
+    rng = np.random.default_rng(seed)
+    k1 = _pick(line, hidden=True, zone="BODY", rng=rng)
+    k2 = _pick(line, hidden=False, zone="FINAL", rng=rng)
+    return Scenario(
+        scenario_id="S7_MULTIPLE_ABNORMALITIES",
+        title="Two independent disturbances active simultaneously",
+        question="Does the twin still separate two real, unrelated faults?",
+        n_vehicles=2000,
+        disturbances=[
+            Disturbance(
+                station=k1, kind=EVENT_SLOWDOWN, t_start_s=30_000, t_end_s=80_000,
+                magnitude=1.30, ramp_s=2_000, label="hidden-station slowdown",
+            ),
+            Disturbance(
+                station=k2, kind=EVENT_QUALITY_DRIFT, t_start_s=40_000, t_end_s=90_000,
+                magnitude=9.0, ramp_s=2_500, label="observed-station quality drift",
+            ),
+        ],
+        notes=(
+            f"two true sources: flow={line.stations[k1].station_id} (hidden), "
+            f"quality={line.stations[k2].station_id} (observed)"
+        ),
+    )
+
+
+def scenario_rare_defect(line: LineTopology, seed: int = 808) -> Scenario:
+    """S8 -- a small, low-magnitude quality drift: the genuinely hard case
+    for the quality path, which needs material before it can say anything
+    (docs/METHOD.md, quality_state's pool_vehicles discussion). Exists to
+    show the honest failure mode, not to be a scenario tuned to succeed.
+    """
+    rng = np.random.default_rng(seed)
+    k = _pick(line, hidden=True, zone="FINAL", rng=rng)
+    return Scenario(
+        scenario_id="S8_RARE_DEFECT",
+        title="A small, low-magnitude quality drift",
+        question="Is a genuinely marginal drift findable, or does it need more data than one run gives?",
+        n_vehicles=1800,
+        disturbances=[
+            Disturbance(
+                station=k, kind=EVENT_QUALITY_DRIFT, t_start_s=30_000, t_end_s=86_000,
+                magnitude=2.4, ramp_s=3_000, label="marginal fixture drift",
+            )
+        ],
+        notes=f"true source = {line.stations[k].station_id}; deliberately weak signal",
+    )
+
+
+def scenario_production_surge(line: LineTopology, seed: int = 909) -> Scenario:
+    """S9 -- a high-volume run with no injected fault: throughput/latency
+    stress rather than a localisation question. Used by the surge test
+    (evaluation/surge.py), not the accuracy tables.
+    """
+    return Scenario(
+        scenario_id="S9_SURGE",
+        title="High-volume production surge",
+        question="Does the twin keep pace, and does the answer stay right, under volume?",
+        n_vehicles=6000,
+        disturbances=[],
+        expect_no_alert=True,
+        notes="no injected fault -- this scenario is about throughput/latency, not localisation",
+    )
+
+
 FLAGSHIP_SCENARIOS: Dict[str, Callable[..., Scenario]] = {
     "S1_HIDDEN_BOTTLENECK": scenario_hidden_bottleneck,
     "S2_HIDDEN_QUALITY": scenario_hidden_quality,
@@ -236,6 +310,30 @@ FLAGSHIP_SCENARIOS: Dict[str, Callable[..., Scenario]] = {
     "S4_OBSERVED_STATION": scenario_observed_station,
     "S5_VARIANT_AND_SUPPLY": scenario_variant_shift,
     "S6_EARLY_WARNING": scenario_gradual_bottleneck,
+    "S7_MULTIPLE_ABNORMALITIES": scenario_multiple_abnormalities,
+    "S8_RARE_DEFECT": scenario_rare_defect,
+    "S9_SURGE": scenario_production_surge,
+}
+
+#: Mapping from the Round 2 brief's lettered stress-scenario list (§31) onto
+#: what actually exercises it in this repository. Not every letter needs a
+#: new Scenario object -- D, I, J, K, L are compositions of existing pieces
+#: (a scenario + a sensor fault, or an existing scenario run against a
+#: different config/coverage), and building a duplicate scenario for each
+#: would just be the same test written twice.
+SCENARIO_SUITE_MAP: Dict[str, str] = {
+    "A_normal_production": "S3_NORMAL",
+    "B_hidden_bottleneck": "S1_HIDDEN_BOTTLENECK",
+    "C_gradual_bottleneck_emergence": "S6_EARLY_WARNING",
+    "D_sensor_failure": "S1_HIDDEN_BOTTLENECK + factory.sensor_health.SensorFault",
+    "E_multiple_simultaneous_abnormalities": "S7_MULTIPLE_ABNORMALITIES",
+    "F_contradictory_sensor_evidence": "S1_HIDDEN_BOTTLENECK + a STALE fault at a neighbour",
+    "G_rare_defect": "S8_RARE_DEFECT",
+    "H_high_production_surge": "S9_SURGE",
+    "I_parallel_station_topology": "configs/plant_b_parallel.yaml",
+    "J_rework_loop": "configs/plant_c_rework.yaml",
+    "K_different_plant_configuration": "configs/plant_b_parallel.yaml or plant_c_rework.yaml",
+    "L_low_sensor_coverage": "S1_HIDDEN_BOTTLENECK @ apply_coverage(0.12 or 0.25)",
 }
 
 
