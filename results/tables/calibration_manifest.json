@@ -1,0 +1,33 @@
+{
+  "generated_by": "rippletwin.evaluation.calibration.run_calibration_experiment",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "nominal_vehicles": 2200,
+    "calibration_vehicles": 1800,
+    "n_episodes": 14,
+    "episode_vehicles": 1000,
+    "episode_seed_base": 9900
+  },
+  "results": {
+    "bottleneck_risk": {
+      "n": 2240,
+      "n_positive": 213,
+      "brier": 0.06025229967748736,
+      "ece": 0.13163810732892597,
+      "coverage_frac": 1.0,
+      "n_reliable_bins": 5
+    },
+    "defect_risk": {
+      "n": 448000,
+      "n_positive": 1900,
+      "brier": 0.015547721371973876,
+      "ece": 0.056634748839450924,
+      "coverage_frac": 1.0,
+      "n_reliable_bins": 5
+    }
+  },
+  "runtime_s": 33.9,
+  "caveat": "Small held-out sample: treat calibration numbers as illustrative of the method, not a statistically powered claim. Bins with too few samples are marked reliable=False in the reliability tables and excluded from the ECE, not smoothed over."
+}

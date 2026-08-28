@@ -1,0 +1,26 @@
+{
+  "generated_by": "rippletwin.evaluation.coverage_matrix.run_coverage_matrix",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "coverages": [
+      1.0,
+      0.75,
+      0.5,
+      0.25,
+      0.12
+    ],
+    "strategies": [
+      "random",
+      "critical"
+    ],
+    "n_episodes": 10,
+    "episode_vehicles": 1200,
+    "nominal_vehicles": 2200,
+    "calibration_vehicles": 1800,
+    "target_window_fpr": 0.02,
+    "episode_seed_base": 8800
+  },
+  "runtime_s": 64.0
+}

@@ -1,0 +1,2 @@
+n_episodes,n_faulted,n_clean,n_missed,miss_rate,n_with_lead_time,mean_lead_time_min,median_lead_time_min,min_lead_time_min,n_with_lead_time_any_station,mean_lead_time_any_station_min,median_lead_time_any_station_min,false_alarm_rate,false_alarm_rate_on_clean_episodes
+22,16,6,9,0.5625,7,-56.385654375259875,-67.59117332521055,-144.47341003604464,10,-35.666245789062735,14.873952609904276,0.2727272727272727,1.0

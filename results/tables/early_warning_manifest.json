@@ -1,0 +1,48 @@
+{
+  "generated_by": "rippletwin.evaluation.early_warning.run_early_warning_experiment",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "coverage": null,
+    "nominal_vehicles": 2600,
+    "calibration_vehicles": 2200,
+    "n_random_episodes": 16,
+    "episode_vehicles": 1200,
+    "target_window_fpr": 0.01,
+    "watch_target_fpr": 0.05,
+    "episode_seed_base": 9000,
+    "window_width": 20,
+    "window_stride": 5
+  },
+  "calibration": {
+    "n_observed": 32,
+    "mean_pairwise_corr": 0.3256004655943564,
+    "n_eff": 2.884542291607326,
+    "tau": 0.09014194661272894,
+    "detect_llr": 31.30364205825687,
+    "target_window_fpr": 0.01,
+    "watch_llr": 15.708693487757285,
+    "watch_target_fpr": 0.05,
+    "llr_noise_std": 5.745257224460622,
+    "null_llr_median": 4.124283528731505,
+    "held_out_calibration": true
+  },
+  "summary": {
+    "n_episodes": 22,
+    "n_faulted": 16,
+    "n_clean": 6,
+    "n_missed": 9,
+    "miss_rate": 0.5625,
+    "n_with_lead_time": 7,
+    "mean_lead_time_min": -56.385654375259875,
+    "median_lead_time_min": -67.59117332521055,
+    "min_lead_time_min": -144.47341003604464,
+    "n_with_lead_time_any_station": 10,
+    "mean_lead_time_any_station_min": -35.666245789062735,
+    "median_lead_time_any_station_min": 14.873952609904276,
+    "false_alarm_rate": 0.2727272727272727,
+    "false_alarm_rate_on_clean_episodes": 1.0
+  },
+  "runtime_s": 23.2
+}

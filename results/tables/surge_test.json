@@ -1,0 +1,19 @@
+{
+  "n_vehicles": 6000,
+  "n_windows": 1160,
+  "fit_context_latency_s": 0.485,
+  "simulate_latency_s": 113.16,
+  "infer_latency_s": 2.457,
+  "infer_latency_per_window_ms": 2.118,
+  "peak_memory_mb": 316.7,
+  "throughput_vph": 50.7,
+  "false_alarm_rate": 0.0034,
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "nominal_vehicles": 2200,
+    "calibration_vehicles": 1800,
+    "surge_vehicles": 6000
+  },
+  "note": "Measured on this machine for this run -- illustrative, not an SLA."
+}

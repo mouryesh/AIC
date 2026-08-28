@@ -1,0 +1,18 @@
+{
+  "generated_by": "rippletwin.evaluation.distribution_shift.run_distribution_shift_experiment",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "nominal_vehicles": 2600,
+    "calibration_vehicles": 2200,
+    "n_episodes": 12,
+    "episode_vehicles": 1200,
+    "target_window_fpr": 0.01,
+    "noise_mult": 1.6,
+    "microstop_mult": 1.8,
+    "fault_magnitude_mult": 1.15,
+    "episode_seed_base": 9500
+  },
+  "runtime_s": 19.5
+}

@@ -127,6 +127,13 @@ def run_early_warning_experiment(
     faulted = df[df["has_fault"] == True]  # noqa: E712
     clean = df[df["has_fault"] == False]  # noqa: E712
     with_lead = faulted[faulted["missed"] == 0.0]["lead_time_min"].dropna()
+    # Diagnostic companion metric -- see metrics.evaluate_early_warning's
+    # docstring: "something is changing" vs. "the twin can already say
+    # where". Reported alongside the headline, not instead of it, because
+    # the gap between the two is itself the honest finding on scenarios
+    # with a short ramp: a station-confirmed warning can cost real lead
+    # time relative to a raw risk-elevation signal.
+    with_lead_any = faulted["lead_time_any_station_min"].dropna() if "lead_time_any_station_min" in faulted.columns else pd.Series(dtype=float)
 
     summary = {
         "n_episodes": int(len(df)),
@@ -138,6 +145,9 @@ def run_early_warning_experiment(
         "mean_lead_time_min": float(with_lead.mean()) if len(with_lead) else float("nan"),
         "median_lead_time_min": float(with_lead.median()) if len(with_lead) else float("nan"),
         "min_lead_time_min": float(with_lead.min()) if len(with_lead) else float("nan"),
+        "n_with_lead_time_any_station": int(len(with_lead_any)),
+        "mean_lead_time_any_station_min": float(with_lead_any.mean()) if len(with_lead_any) else float("nan"),
+        "median_lead_time_any_station_min": float(with_lead_any.median()) if len(with_lead_any) else float("nan"),
         "false_alarm_rate": float(df["false_alarm"].mean()) if len(df) else float("nan"),
         "false_alarm_rate_on_clean_episodes": (
             float(clean["false_alarm"].mean()) if len(clean) else float("nan")
