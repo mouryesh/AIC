@@ -339,6 +339,51 @@ written by code that ran.
 
 ---
 
+## Ask the twin — a grounded language layer
+
+Everything above this line uses no LLM, deliberately. That is still true of
+where every *number* comes from. What was missing was a way for a supervisor
+to interrogate the system, and that gap is not hypothetical — it is the
+single most-cited reason digital-twin and predictive-maintenance rollouts
+lose the floor:
+
+> "Supervisors are being asked to accept conclusions from systems they can't
+> interrogate, about an environment they know firsthand is inconsistent."
+> — practitioner commentary on digital-twin trust failures
+
+> A controls technician "silenced forty-one alerts in under three minutes
+> without reading a single one" after learning the platform's red banners
+> were usually noise. — [Alarm Fatigue Is Killing Predictive Maintenance Before It Proves Itself](https://www.automatedbuildings.com/2026/08/alarm-fatigue-is-killing-predictive-maintenance-before-it-proves-itself/)
+
+[`rippletwin/copilot/ask.py`](src/rippletwin/copilot/ask.py) adds a
+conversational layer in the Floor supervisor view ("🤖 Ask the twin") that lets
+a supervisor ask follow-up questions about an alert in their own words. It is
+built so the trust problem above cannot re-appear through the back door:
+
+- Every answer is generated from a fixed `EvidencePack` — the exact same
+  numbers already shown in the explanation panel, serialised once and passed
+  as the *only* facts a backend may draw on. Nothing is re-derived.
+- A **guardrail** scans every candidate answer for numeric tokens and rejects
+  any that do not already appear in the evidence pack — whether the answer
+  came from the offline template backend or an LLM. This is deliberately
+  crude (regex + set membership) because an auditable rule beats a clever one
+  that could itself be silently wrong.
+- **Default and always-available:** a deterministic, offline template backend
+  answers the questions a supervisor actually asks (why, how sure, what if
+  you're wrong, what should I do, is this urgent) with byte-identical output
+  for the same input — no network call, no API key, works in an air-gapped
+  demo.
+- **Optional:** set `ANTHROPIC_API_KEY` and install `anthropic` to route
+  open-ended questions through an LLM for natural phrasing — still
+  constrained to the same evidence pack and the same guardrail before
+  anything reaches the screen. No key is configured in this repository or its
+  deployment; the feature was built and tested against the offline backend.
+
+Tests: `tests/test_copilot.py` — including a test that feeds the guardrail a
+deliberately fabricated number and asserts it gets caught.
+
+---
+
 ## Responsible AI
 
 - **No autonomous control.** RippleTwin writes to no PLC and cannot stop the

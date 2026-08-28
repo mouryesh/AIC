@@ -29,6 +29,7 @@ import pandas as pd  # noqa: E402
 import plotly.graph_objects as go  # noqa: E402
 import streamlit as st  # noqa: E402
 
+from rippletwin.copilot.ask import EvidencePack, TwinCopilot, active_backend_name  # noqa: E402
 from rippletwin.explain.explain import explain_flow_alert  # noqa: E402
 from rippletwin.factory import scenarios as SC  # noqa: E402
 from rippletwin.factory.topology import build_line  # noqa: E402
@@ -404,6 +405,37 @@ if view == "Floor supervisor":
         if rec.alternatives:
             st.caption(f"If wrong: {rec.alternatives[0]}")
 
+        st.markdown("---")
+        st.subheader("🤖 Ask the twin")
+        st.caption(
+            "Answers are drawn only from the facts already computed above -- a "
+            "guardrail rejects any number the model states that isn't already in "
+            "the evidence pack, whether the answer came from a template or an LLM. "
+            f"Active backend: **{active_backend_name()}**. Falls back to a "
+            "deterministic offline template with zero setup if no LLM key is "
+            "configured (see rippletwin/copilot/ask.py)."
+        )
+        pack = EvidencePack.from_explanation(
+            exp, rec, units_at_risk_per_hr=fc.units_lost_at_horizon if fc else None
+        )
+        q = st.text_input(
+            "Ask a question about this alert",
+            placeholder="e.g. why do you think it's this station? / is this urgent? / what if you're wrong?",
+            key=f"copilot_q_{w}",
+        )
+        if q:
+            answer = TwinCopilot().ask(q, pack)
+            st.info(answer.text)
+            badge = "🟢 grounded" if answer.grounded else "🔴 flagged"
+            source = f"{active_backend_name()} (guardrail-checked)" if answer.used_llm else "offline template"
+            st.caption(f"{badge} · answered by: {source}")
+            if answer.flagged_numbers:
+                st.caption(
+                    f"⚠️ The model's first draft mentioned numbers not in the "
+                    f"evidence pack ({', '.join(answer.flagged_numbers)}) and was "
+                    f"replaced with the grounded template answer."
+                )
+
         d1, d2, d3 = st.columns(3)
         if d1.button("✅ Approve", use_container_width=True):
             e = ledger.record_alert(
@@ -571,13 +603,21 @@ else:
                                   50, 5000, 420, step=10)
     prod_hours = a3.number_input("Productive hours per year", 1000, 8000, 3800, step=100)
 
-    b1, b2, b3 = st.columns(3)
-    sensor_cost = b1.number_input("Fully-installed cost per station retrofit (USD)",
+    b1, b2, b3, b4 = st.columns(4)
+    sensor_cost = b1.number_input("PLC-integrated retrofit / station (USD)",
                                   1000, 100000, 18000, step=1000)
-    n_blind = b2.number_input("Blind stations on this line",
+    clamp_cost = b2.number_input("Non-invasive clamp-on retrofit / station (USD)",
+                                 100, 20000, 1000, step=100)
+    n_blind = b3.number_input("Blind stations on this line",
                               1, 40, len(line.hidden_indices))
-    deploy_cost = b3.number_input("RippleTwin deployment, year 1 (USD)",
+    deploy_cost = b4.number_input("RippleTwin deployment, year 1 (USD)",
                                   10000, 1000000, 150000, step=10000)
+    st.caption(
+        r"Clamp-on default of \$1,000 is the midpoint of a \$200–\$2,000/station "
+        "range compiled from public vendor sourcing on non-invasive current-clamp "
+        "monitoring — an ILLUSTRATIVE ASSUMPTION, not a quote for this line. See "
+        "BUSINESS_CASE.md §5a."
+    )
 
     c1, c2 = st.columns(2)
     events_per_year = c1.number_input(
@@ -665,17 +705,25 @@ else:
     st.markdown("---")
     st.subheader("Sensor economics")
     retro = n_blind * sensor_cost
-    e1, e2, e3 = st.columns(3)
-    e1.metric("Instrument every blind station", f"${retro:,.0f}",
-              f"{n_blind} stations x ${sensor_cost:,.0f}")
-    e2.metric("RippleTwin, year 1", f"${deploy_cost:,.0f}")
-    e3.metric("Difference", f"${retro - deploy_cost:,.0f}")
+    retro_clamp = n_blind * clamp_cost
+    e1, e2, e3, e4 = st.columns(4)
+    e1.metric("PLC-integrated retrofit, all blind stations", f"${retro:,.0f}",
+              f"{n_blind} x ${sensor_cost:,.0f}")
+    e2.metric("Non-invasive clamp-on, all blind stations", f"${retro_clamp:,.0f}",
+              f"{n_blind} x ${clamp_cost:,.0f}")
+    e3.metric("RippleTwin, year 1", f"${deploy_cost:,.0f}")
+    e4.metric("Diff. vs. cheapest retrofit", f"${retro_clamp - deploy_cost:,.0f}")
     st.markdown(
-        "RippleTwin does **not** claim zero sensors. It claims that the stations "
-        "already instrumented carry more information than a conventional twin "
-        "extracts from them, and that inference can cover the remainder well "
-        "enough to act on — for the ones it cannot, the coverage experiment in "
-        "`results/tables/` shows exactly where that breaks down."
+        "RippleTwin does **not** claim zero sensors, and it does **not** claim "
+        "instrumentation is expensive — a non-invasive clamp-on retrofit is "
+        "often *cheaper* than a year of RippleTwin. The claim is narrower: "
+        "clamp-on current draw is a coarse proxy for blocked/starved (no "
+        "torque/vibration/temperature, and it needs calibration per motor), and "
+        "even a fully-instrumented line still needs something to turn per-station "
+        "signal into a located constraint, a forecast and a recommendation. The "
+        "stations already instrumented also carry more information about their "
+        "neighbours than a conventional twin extracts — the coverage experiment "
+        "in `results/tables/` shows exactly where that stops being true."
     )
     st.caption(
         "Retrofits are also constrained by scheduled maintenance windows, so the "
