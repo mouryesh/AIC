@@ -1,0 +1,6 @@
+condition,coverage,fault_kind,n,mean_dmr,median_outcome_gap
+cov50_clean,0.5,,24,0.5922916666666667,1.0
+cov50_noisy30pct,0.5,NOISY,24,0.5922916666666667,1.0
+cov75_clean,0.75,,24,0.34979166666666667,0.5
+cov75_dropout30pct,0.75,DROPOUT,24,0.35000000000000003,0.5
+cov75_stale30pct,0.75,STALE,24,0.3785416666666667,0.5

@@ -1,0 +1,60 @@
+{
+  "generated_by": "rippletwin.evaluation.stress_test.run_stress_test",
+  "result_type": "SIMULATED PROTOTYPE RESULT on synthetic data",
+  "methodology_reference": "arXiv:2608.14917 (Saad Saoud, 2026)",
+  "config": {
+    "line_config": "configs/line_42.yaml",
+    "line_seed": 7,
+    "n_tune_episodes": 8,
+    "n_test_episodes": 24,
+    "episode_vehicles": 1200,
+    "nominal_vehicles": 2600,
+    "calibration_vehicles": 2200,
+    "coverages": [
+      1.0,
+      0.75,
+      0.5,
+      0.25
+    ],
+    "target_window_fpr": 0.01,
+    "window_width": 20,
+    "window_stride": 5,
+    "tune_seed_base": 1000,
+    "test_seed_base": 5000,
+    "fusion_enabled": false
+  },
+  "stress_grid": [
+    {
+      "coverage": 0.75,
+      "fault_kind": null,
+      "fault_fraction_of_run": 0.0,
+      "label": "cov75_clean"
+    },
+    {
+      "coverage": 0.5,
+      "fault_kind": null,
+      "fault_fraction_of_run": 0.0,
+      "label": "cov50_clean"
+    },
+    {
+      "coverage": 0.75,
+      "fault_kind": "DROPOUT",
+      "fault_fraction_of_run": 0.3,
+      "label": "cov75_dropout30pct"
+    },
+    {
+      "coverage": 0.5,
+      "fault_kind": "NOISY",
+      "fault_fraction_of_run": 0.3,
+      "label": "cov50_noisy30pct"
+    },
+    {
+      "coverage": 0.75,
+      "fault_kind": "STALE",
+      "fault_fraction_of_run": 0.3,
+      "label": "cov75_stale30pct"
+    }
+  ],
+  "oracle_self_check_max_mismatch": 0.0,
+  "runtime_s": 37.7
+}
