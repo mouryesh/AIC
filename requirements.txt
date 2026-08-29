@@ -4,7 +4,7 @@ scipy>=1.10
 scikit-learn>=1.3
 pyyaml>=6.0
 plotly>=5.18
-streamlit>=1.30
+streamlit>=1.37
 pytest>=7.4
 
 # Optional: enables the LLM phrasing backend in rippletwin/copilot/ask.py.
