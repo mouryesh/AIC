@@ -264,6 +264,11 @@ class ShadowResult:
     v_end: int = 0
     t_mid_s: float = 0.0
     evidence: dict = field(default_factory=dict)
+    #: Second-highest posterior mass among non-NULL, non-LINE_SUPPLY station
+    #: hypotheses, and its station index. Additive (Plan A, see
+    #: evaluation/bottleneck_diagnosis.py) -- unused by any existing caller.
+    runner_up_station: Optional[int] = None
+    runner_up_prob: float = 0.0
 
 
 class ShadowSensor:
@@ -459,6 +464,16 @@ class ShadowSensor:
         top_p = float(station_post[top])
         llr = float(rel_s[top])
 
+        # Runner-up: second-highest posterior mass among the n station
+        # hypotheses (excluding NULL/LINE_SUPPLY), and its index. Additive
+        # field for Plan A's shift-severity diagnostic.
+        if n > 1:
+            runner_up = int(np.argmax(np.where(np.arange(n) == top, -np.inf, station_post)))
+            runner_up_p = float(station_post[runner_up])
+        else:
+            runner_up = None
+            runner_up_p = 0.0
+
         # Adjacent stations -- especially adjacent hidden ones -- are often
         # genuinely indistinguishable. Rather than pretend otherwise, report the
         # contiguous group around the top candidate and its combined mass.
@@ -503,6 +518,8 @@ class ShadowSensor:
             v_start=v_start,
             v_end=v_end,
             t_mid_s=t_mid_s,
+            runner_up_station=runner_up,
+            runner_up_prob=runner_up_p,
             evidence={
                 "p_null": post[NULL_HYPOTHESIS],
                 "p_line_supply": post[LINE_SUPPLY_HYPOTHESIS],
@@ -571,6 +588,8 @@ class ShadowSensor:
                     "confident": r.confident,
                     "p_null": r.evidence["p_null"],
                     "p_line_supply": r.evidence["p_line_supply"],
+                    "runner_up_station": r.runner_up_station,
+                    "runner_up_prob": r.runner_up_prob,
                 }
             )
         return pd.DataFrame(rows)
