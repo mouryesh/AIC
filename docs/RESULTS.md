@@ -202,6 +202,12 @@ Ranked on **separability** — the residual left when the closest rival hypothes
 
 ---
 
+See also [docs/STRESS_TEST.md](STRESS_TEST.md) for a decision-vs-outcome
+stress test (oracle vs. sensor-corrupted views), a separate results
+directory (`results_stress_test/`) not reflected in the tables above.
+
+---
+
 ## Reproducing
 
 ```bash
