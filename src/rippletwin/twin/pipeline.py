@@ -31,6 +31,17 @@ class TwinContext:
     spec: WindowSpec
     shadow_cfg: ShadowConfig
     calibration: dict = None
+    #: Opt-in flow+quality evidence fusion for ambiguous blind-station groups
+    #: (Plan C / Hybrid 2, see twin/evidence_fusion.py). Defaults False, so
+    #: every existing caller of infer() is unaffected. Setting this True
+    #: without also setting ``quality_baseline`` still has zero effect, since
+    #: the fusion step requires both.
+    enable_evidence_fusion: bool = False
+    #: A twin.genealogy.QualityBaseline fitted for this same observability
+    #: view, required (alongside enable_evidence_fusion=True) for the fusion
+    #: step to run. None -- the default, and every caller that has not
+    #: explicitly opted in -- means fusion never fires.
+    quality_baseline: object = None
 
     def new_sensor(self) -> ShadowSensor:
         return ShadowSensor(self.line, self.shadow_cfg)
@@ -136,4 +147,48 @@ def infer(ctx: TwinContext, res) -> tuple:
     shadow = sensor.run(
         scored, ctx.baseline.sigma_blocked, ctx.baseline.sigma_starved
     )
+
+    # --- optional evidence fusion for flagged-ambiguous groups (Plan C / Hybrid 2) ---
+    # Opt-in only: never overwrites top_station. See twin/evidence_fusion.py.
+    # Both enable_evidence_fusion and quality_baseline must be set for this to
+    # do anything, so every existing caller -- whose TwinContext has these at
+    # their dataclass defaults (False / None) -- is byte-identical to before.
+    if getattr(ctx, "enable_evidence_fusion", False) and getattr(ctx, "quality_baseline", None) is not None:
+        from . import evidence_fusion as EF
+        from . import genealogy as GN
+        from .placement import ambiguity as compute_ambiguity
+
+        data = as_plant_data(res)
+        if data.has_quality_path and not shadow.empty:
+            amb_df = compute_ambiguity(
+                ctx.line, ctx.line.observed_indices, ctx.shadow_cfg,
+                ctx.baseline.sigma_blocked, ctx.baseline.sigma_starved,
+            )
+            groups = EF.ambiguous_groups(amb_df)
+            if groups:
+                wb = GN.window_bounds_from(scored)
+                defects = GN.explode_defects(data.inspections)
+                quality_state_df = GN.quality_state(
+                    ctx.line, defects, wb, ctx.quality_baseline, pool_vehicles=200
+                )
+                fused_stations, fused_margins = [], []
+                for _, row in shadow.iterrows():
+                    group = next((g for g in groups if int(row["top_station"]) in g), None)
+                    if group is None or quality_state_df.empty:
+                        fused_stations.append(row["top_station"])
+                        fused_margins.append(np.nan)
+                        continue
+                    result = EF.fuse_ambiguous_group(
+                        row, quality_state_df, group,
+                        row.get("t_lo_s", row.get("t_mid_s", 0.0)),
+                        row.get("t_hi_s", row.get("t_mid_s", 0.0)), wb,
+                    )
+                    if result is None:
+                        fused_stations.append(row["top_station"])
+                        fused_margins.append(np.nan)
+                    else:
+                        fused_stations.append(result["fused_top_station"])
+                        fused_margins.append(result["fused_llr_margin"])
+                shadow = shadow.assign(fused_top_station=fused_stations, fused_llr_margin=fused_margins)
+
     return scored, shadow, sensor

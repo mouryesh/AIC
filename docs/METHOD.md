@@ -328,6 +328,84 @@ there is nothing hidden to infer.
 
 ---
 
+## 7½. A design we tried and did not promote: flow+quality LLR fusion for ambiguous blind pairs
+
+Section 3 documents three things that were *wrong* and got fixed. This one is
+different: the mechanism is not wrong, it is just — on the evidence gathered
+— not shown to help, and it was not promoted into the default pipeline.
+
+**The idea.** Section 8 below (and `docs/RESULTS.md` §7) documents that
+adjacent blind-station pairs (S32/S33, S37/S38, and several others) are
+~85–97% cosine-confusable to the flow model — it cannot always tell which of
+the pair is the real constraint. `twin/genealogy.py::quality_state` computes
+an entirely independent LLR, from defect-type propensity rather than timing,
+for the same candidate stations. `twin/evidence_fusion.py` (new, additive)
+combines the two log-likelihoods for stations inside a flagged-ambiguous
+group, in the same "independent evidence channels add in log-space" spirit
+`shadow.py`'s own `z_proc` term already uses. It is wired into
+`twin/pipeline.py::infer()` behind `ctx.enable_evidence_fusion` (default
+`False`) and never overwrites the audited `top_station` field — it only adds
+opt-in `fused_top_station`/`fused_llr_margin` columns.
+
+**The gated comparison.** Per the implementation runbook's decision gate: ran
+the full flagship protocol twice, identical `ExperimentConfig` (8 tune + 24
+test episodes, seeds 1000–1007/5000–5023, coverages 1.00/0.75/0.50/0.25,
+`target_window_fpr=0.01`), differing only in `fusion_enabled`.
+
+- **Every non-`COMBINED` row of `by_fault_kind.csv` was byte-identical**
+  between the two runs (`non_combined_base.equals(non_combined_fused)` is
+  `True`) — the gating is clean; fusion genuinely touches nothing outside its
+  intended scope.
+- **The `COMBINED` rows were also byte-identical**, for every method
+  including RippleTwin, at every coverage level. This is not, by itself,
+  evidence that fusion "matched" flow-only performance — `evaluate_localization`
+  (via `models/baselines.py::build_methods`) reads only `shadow`'s original
+  `top_station`/`detected` columns, exactly as designed so fusion could never
+  destabilise the audited number. It **structurally cannot see**
+  `fused_top_station` at all. Any two runs that differ only in
+  `fusion_enabled` will produce an identical `by_fault_kind.csv`, regardless
+  of what the fusion logic concludes internally.
+- To find out whether `fused_top_station` would actually have changed
+  anything, the two `COMBINED`-fault-kind held-out test episodes (seeds 5008
+  and 5021 — this is the entire `COMBINED` slice of the standard 24-episode
+  test split) were inspected directly, comparing `fused_top_station` against
+  `top_station` window-by-window during the fault, at coverage 0.75 and 0.50
+  where the true station (S10 for seed 5008, S32 for seed 5021) sits inside a
+  flagged-ambiguous group. Seed 5008 never reached a detected window in this
+  slice at either coverage, so it contributes no comparison. For seed 5021,
+  fusion **did** fire — `fused_llr_margin` was a real, non-`NaN` number on
+  every detected window, confirming overlapping quality evidence existed —
+  but `fused_top_station` equalled `top_station` on **every one of the 9
+  (coverage 0.75) and 10 (coverage 0.50) detected windows**. Localisation
+  accuracy against ground truth was identical either way (0.556 at 0.75
+  coverage, 0.700 at 0.50 coverage, exact-station match rate). Zero of 19
+  fusion evaluations changed the pick.
+
+**Reading this honestly.** This is not a "worse" result, and it is not
+compelling enough to call a "narrow win" either — it is a **null result on a
+badly underpowered sample**. The standard evaluation protocol contains
+exactly two `COMBINED`-fault-kind held-out episodes, one of which never
+produced a comparison at all. Two data points, on which fusion agreed with
+the unfused posterior one hundred percent of the time, is not evidence that
+quality-path evidence never helps disambiguate a flagged group — it is
+evidence that this particular narrow mechanism, on this particular thin
+slice of this synthetic line, has not yet been shown to move the needle.
+Forcing either a "promote it" or "it's worse" conclusion out of two episodes
+would overstate what was actually measured.
+
+**Decision: not promoted.** `twin/evidence_fusion.py` and the
+`enable_evidence_fusion`/`quality_baseline` plumbing stay in the repository,
+fully tested (`tests/test_evidence_fusion.py`, including the regression
+guard proving `infer()`'s default output is byte-identical whether or not
+the attributes are present), opt-in, and off by default. `top_station`
+remains the sole audited field every existing table and dashboard reads. A
+real test of this idea needs either a larger synthetic `COMBINED` episode
+set restricted to ambiguous-group source stations, or real production data
+where quality alerts and flow disturbances co-occur more than twice in 24
+episodes — neither of which this evaluation pass had the budget to build.
+
+---
+
 ## 8. Known limitations
 
 - **Serial-line assumption.** The propagation model assumes one directed path.
