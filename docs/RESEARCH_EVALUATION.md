@@ -103,6 +103,13 @@ existing calibration, threshold, or estimator.
 is honestly closer to "expose what already exists" than "build something
 new." Full execution plan: [Plan A](IMPLEMENTATION_RUNBOOK.md#plan-a).
 
+**Outcome (built).** Shipped as `evaluation/bottleneck_diagnosis.py`,
+merged to `main`. `ShadowSensor` needed one additive column
+(`runner_up_station`/`runner_up_prob`) that didn't already exist — the
+only place this touched a core file. Sanity-checked against a real
+`S1_HIDDEN_BOTTLENECK` run: the top-ranked station matched the injected
+fault exactly. 5 new tests, all passing.
+
 ---
 
 ### 2. arXiv:2607.24819 — Dynamic Multi-Criteria Bottleneck Severity Index (DMBSI) for semiconductor wafer manufacturing
@@ -608,6 +615,14 @@ table. No existing calibration, threshold, or estimator is touched.
 [Plan B](IMPLEMENTATION_RUNBOOK.md#plan-b) — the top recommendation of the
 whole review.
 
+**Outcome (built).** Shipped as `evaluation/stress_test.py`, merged to
+`main`. Full run against the standard 24 held-out test episodes:
+**oracle self-check was exactly 0 mismatch on every episode** (the
+mandatory pass gate — see `docs/STRESS_TEST.md`). Reported honestly:
+coverage loss dominates decision mismatch (0.35→0.59 going 75%→50%
+coverage) far more than the specific dynamic sensor faults tested moved
+it. 3 new tests, all passing.
+
 ---
 
 ### 12. arXiv:1903.03783 — Performance evaluation of a production line operated under an echelon buffer policy
@@ -745,6 +760,18 @@ quality pools 200 vehicles per test, a genuinely different granularity).
 **Verdict: IMPLEMENT**, with the caveat stated honestly in the write-up:
 narrow scope, gated promotion only. Full execution plan:
 [Plan C](IMPLEMENTATION_RUNBOOK.md#plan-c).
+
+**Outcome (built, not promoted).** Shipped as `twin/evidence_fusion.py`,
+merged to `main`, opt-in and off by default — `top_station` is never
+overwritten (verified directly in `twin/pipeline.py`). The gated
+before/after comparison (same seeds, same protocol, `fusion_enabled`
+toggled) came back clean but inconclusive: fusion fired on real evidence
+in both `COMBINED`-fault-kind held-out episodes but never changed the
+station pick on any of 19 detected windows — an honestly underpowered
+null result on a 2-episode sample, not a win. Documented as a negative
+result in `docs/METHOD.md` rather than promoted. 4 new tests, all passing,
+including a regression guard proving every existing caller of `infer()`
+is byte-identical whether or not the fusion attributes are present.
 
 ---
 
