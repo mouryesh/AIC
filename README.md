@@ -15,6 +15,12 @@ Accenture Innovation Challenge 2026 · Round 2 · Track 4 — **DigitalTwin.ai**
 **Results:** [docs/RESULTS.md](docs/RESULTS.md) ·
 **Business case:** [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md)
 
+**For judges, in one glance:**
+- **69% exact-station localisation** of hidden-station faults at 75% coverage — every baseline, including the published Turning Point Method, scores **0%**
+- At 100% coverage RippleTwin and an observed-only twin are identical — the advantage appears exactly and only where instrumentation is missing
+- **216 tests**, zero hard-coded numbers, reproducible from a fixed seed — `pytest -q`
+- Every result is a **simulated prototype result on synthetic data** — stated repeatedly below, not buried once
+
 Most digital twins can only observe what their sensors measure. RippleTwin
 infers hidden station states from the propagation pattern of blocked and
 starved neighbouring stations.
@@ -92,6 +98,30 @@ finds anything, honest confidence that responds to actual evidence quality
 (including when a sensor itself is failing), and a decision loop where a
 human's validated outcome measurably updates what the system trusts next
 time.
+
+### Why not an off-the-shelf digital twin?
+
+Most large automotive plants already have one, or are being sold one — so
+this is not "should we have a twin," it's "what does ours actually cover."
+A conventional twin, commercial or in-house, models the stations it can
+measure and is silent about the rest. On this line that's every method we
+compared it against, including the published Turning Point Method
+(Li, Chang & Ni, 2009): it detects a hidden-station disturbance as
+reliably as RippleTwin does, and *better* at 50% coverage — but it can
+only scan the stations it can see, so when the true source sits in an
+un-instrumented run, it names the nearest station it can see and is wrong
+by construction. Exact-station accuracy on hidden sources: **0%**, for
+every baseline, at every coverage level we tested.
+
+**The algorithm is not the moat, and we don't pretend otherwise** — it's a
+few hundred lines of physics, documented in this repository, and an
+incumbent platform could implement it. What an off-the-shelf twin doesn't
+already do is treat the stations you *do* measure as a sensor for the ones
+you don't, and use that same model to say **which station** is worth
+instrumenting next. That inversion — and the outcome ledger that
+accrues plant-specific precision from day one — is the actual
+differentiator. Full version of this argument, including the harder
+follow-up questions: [docs/JUDGE_QA.md](docs/JUDGE_QA.md) Q0a–Q0e, Q30–Q31.
 
 ---
 
@@ -735,7 +765,7 @@ demo/run_streaming_demo.py    paced, window-by-window replay
   twin/placement.py           where the next sensor should go
   integrate/contract.py       the input contract + Phase 0 readiness assessment
   recommend/dispatch.py       alert -> owned, time-bounded work order
-tests/                        220+ tests, physics first
+tests/                        216 tests, physics first
 docs/                         METHOD · RESULTS · ARCHITECTURE · LIMITATIONS ·
                               ROUND2_SCORECARD · SIGNALS · BUSINESS_CASE · JUDGE_QA
 results/                      tables and figures, all generated

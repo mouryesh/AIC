@@ -99,6 +99,32 @@ literature provides real-world validation of methods."** We are at the field's
 norm, not below it — and unlike most of that literature we ship the code and the
 seeds, so anyone can reproduce every number here.
 
+**0e. The Turning Point Method detects more often than you at 50%
+coverage. Doesn't that mean it's just better?**
+At 50% coverage, B3 Turning Point detects 74% of disturbances; RippleTwin
+detects 63%. We report that number ourselves — README's own findings
+table — rather than let a judge find it first. It's real, and it's not
+close: the published method is genuinely a strong detector.
+
+But detecting and naming are different claims, and the comparison that
+matters is the second one. On the same 50%-coverage episodes, Turning
+Point's exact-station accuracy on hidden-source faults is **0%** — not
+low, zero, on every single one — because it can only scan the stations it
+can see, so when the true source is in an un-instrumented run, the method
+names the nearest station it *can* see and is wrong by construction. It
+is not that it localises poorly; the true answer is outside its output
+space entirely. RippleTwin's 59% exact-station accuracy at that same
+coverage level is not a marginal win over a slightly weaker detector — it
+is the only method of the five compared that can name a station Turning
+Point cannot even consider.
+
+So the honest framing is not "we beat the published method." It's: they
+detect slightly more often, and when the answer matters — which
+station — theirs is structurally unable to give one and ours can. A plant
+that only needs "is something wrong" should look hard at B3; a plant that
+needs "which technician do I send, and where" is the reason this project
+exists.
+
 ---
 
 ## Technical
@@ -321,7 +347,7 @@ clean lines and abstains when ambiguous.
 The factory is simulated — the line, the disturbances, the defects. Everything
 downstream is real, running code: feature construction, the estimator,
 calibration, baselines, evaluation, explanation, recommendation, ledger,
-dashboard. 204 tests pass. No result in this repo is hard-coded.
+dashboard. 216 tests pass. No result in this repo is hard-coded.
 
 **27. What are the baselines, and are they fair?**
 B0 SPC per station, B1 Isolation Forest on the same features, B2 our own flow
@@ -338,6 +364,33 @@ Localisation of hidden sources degrades gracefully — see
 because with nothing hidden there is nothing to infer. The advantage appears
 exactly and only where instrumentation is missing, which is what should happen
 if the mechanism is real rather than an artefact of tuning.
+
+**28a. 12% exact-station accuracy at 25% coverage — isn't that just not
+working?**
+Read on its own, 12% sounds like failure. Read against what every other
+method scores at that coverage level — **0%**, all four of them,
+including the published Turning Point Method — it's the only method that
+scores above zero at all. The right question isn't "is 12% good," it's
+"is 12% better than the alternative," and at 25% coverage the alternative
+is universally zero.
+
+We don't dress this up. 25% coverage means roughly 10 of 42 stations are
+instrumented, with long blind runs between them — and `twin/placement.py`'s
+own ambiguity analysis explains *why* 12% is roughly what should be
+expected there: at that sparsity, many blind stations are structurally
+indistinguishable from their neighbours using flow evidence alone, and the
+system is built to abstain rather than guess when that's true (see
+Limitation 2 in `docs/LIMITATIONS.md`). A meaningful share of the
+remaining 88% is not "wrong answers" — it's honest abstention on cases
+the evidence genuinely cannot separate, which the placement recommendation
+in `twin/placement.py::recommend_sensors` is specifically built to fix by
+naming which stations to instrument next.
+
+The real answer to "is 25% coverage viable" is in
+`docs/BUSINESS_CASE.md`'s sensor-economics section: it isn't, on its own,
+a number to deploy on — it's the evidence for *why* a plant that sparse
+should read the sensor-placement recommendation before going live, not a
+claim that 25% coverage is where this ships.
 
 **29. Your detection rates are not that high. Why?**
 Because we report them per-window and per-episode, at a 1%-false-alarm operating

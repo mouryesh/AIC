@@ -36,7 +36,7 @@ Every element the brief names for the proposal is covered:
 | Area | Covered |
 |---|---|
 | Modelling approach — what to represent vs infer | ✅ explicit OBSERVED / INFERRED / PREDICTED split |
-| Predictive techniques + how you'd validate before trusting output | ✅ 4 baselines at matched FPR **including the published Turning Point Method**, coverage sweep, 204 tests |
+| Predictive techniques + how you'd validate before trusting output | ✅ 4 baselines at matched FPR **including the published Turning Point Method**, coverage sweep, 216 tests |
 | Handling data gaps at sensor-poor stations | ✅ the core mechanism |
 | Distinct views for supervisor / plant manager / leadership | ✅ three dashboard views |
 | Integration around legacy PLCs without disrupting production | ✅ read-only; no PLC writes anywhere |
@@ -60,7 +60,7 @@ Every element the brief names for the proposal is covered:
 - [x] Dashboard works — verified rendering in a browser, not just HTTP 200
 - [x] Explainability works — provenance-tagged, no LLM in the path
 - [x] Human-in-the-loop works — hash-chained ledger, tamper test passes
-- [x] Tests pass — 79/79
+- [x] Tests pass — 216/216
 
 ## Repository hygiene
 
