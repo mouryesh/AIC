@@ -1,6 +1,6 @@
 # Demo video — storyboard and narration
 
-**Target length:** ~4:00. The original Round 1/2 cut (2:50, reproduced at
+**Target length:** ~4:25. The original Round 1/2 cut (2:50, reproduced at
 the end of this document) still stands as a shorter alternative; this
 version adds the predictive/robustness beats added in the Round 2 upgrade
 (early warning, sensor failure, defect prediction, cross-plant
@@ -21,6 +21,8 @@ convention `docs/HANDOVER.md` uses for every step that requires a person.
 streamlit run app/dashboard.py                              # screen A — the product
 python demo/run_demo.py --scenario S1                        # screen B — deterministic evidence
 python demo/run_streaming_demo.py --scenario S6_EARLY_WARNING # screen C — the streaming replay
+python demo/make_plant_export.py                              # screen D — the pilot-on-your-own-data beat
+python -m rippletwin.pilot --export demo/plant_export/mapping.yaml
 ```
 
 ---
@@ -174,7 +176,36 @@ calculator.
 
 ---
 
-## 3:50–4:00 — Close
+## 3:50–4:15 — Try it on your own data
+
+**Screen:** Terminal.
+
+```bash
+python demo/make_plant_export.py
+python -m rippletwin.pilot --export demo/plant_export/mapping.yaml
+```
+
+**Narration:**
+> Everything so far can only be checked by us, on our own simulator — that
+> is the position most industrial prototypes are in, and it's why so many
+> never get past the presentation. This inverts it. That first command
+> writes what a real historian export actually looks like: awkward column
+> names, ISO timestamp strings, no pre-joined dwell times — and hides a
+> slowdown at a station with no telemetry at all. The second command is the
+> whole pilot tool: one command, no credentials, no network, no OT change.
+
+**On screen:** let the report scroll — data verdict, inferred topology and
+its stated assumptions, Phase 0 capability verdict, findings, work orders.
+Hold on the line that names the hidden station.
+
+**Narration (continued):**
+> It named the station with no sensor, correctly — and the ground truth it
+> checked against was never shown to the tool. A plant runs this exact
+> command on its own export, not ours.
+
+---
+
+## 4:15–4:25 — Close
 
 **Final card:**
 ```
@@ -186,7 +217,7 @@ Simulated prototype results on synthetic data.
 
 ---
 
-## Shot list (full ~4:00 cut)
+## Shot list (full ~4:25 cut)
 
 | # | Source | Length |
 |---|---|---|
@@ -200,7 +231,8 @@ Simulated prototype results on synthetic data.
 | 8 | Defect-risk readout | 20s |
 | 9 | Topology experiment output | 20s |
 | 10 | Sensor placement + ROI (Leadership tab) | 15s |
-| 11 | Final card | 10s |
+| 11 | Terminal — pilot tool on a synthetic plant export | 25s |
+| 12 | Final card | 10s |
 
 ## Things to avoid
 
