@@ -56,6 +56,13 @@ class ExperimentConfig:
     #: Seeds for tuning episodes start here; test seeds start well past them.
     tune_seed_base: int = 1000
     test_seed_base: int = 5000
+    #: Opt-in flow+quality evidence fusion for ambiguous blind-station groups
+    #: (Plan C / Hybrid 2, see twin/evidence_fusion.py). Defaults False, so
+    #: every existing call to run_experiment() reproduces prior results
+    #: exactly. When True, each coverage view's already-fitted QualityBaseline
+    #: (qbaselines[c], computed below regardless) is attached to that view's
+    #: TwinContext so twin.pipeline.infer's opt-in fusion step can run.
+    fusion_enabled: bool = False
 
 
 def _window_times(scored: pd.DataFrame) -> pd.DataFrame:
@@ -144,6 +151,12 @@ def run_experiment(
         qbaselines[c] = GN.QualityBaseline.fit(
             v, nom_att, n_vehicles=len(nom_v.vehicles)
         )
+        if cfg.fusion_enabled:
+            # Reuses the QualityBaseline already fit above -- no duplicate
+            # work. See TwinContext.enable_evidence_fusion/quality_baseline
+            # in twin/pipeline.py and evidence_fusion.py (Plan C).
+            ctx.enable_evidence_fusion = True
+            ctx.quality_baseline = qbaselines[c]
         if verbose:
             cal = ctx.calibration
             print(f"  view {c:.2f}: tau={cal['tau']:.4f} "
