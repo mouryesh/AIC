@@ -75,7 +75,7 @@ replace them and watch the answer change.
 | Contribution margin per vehicle | $2,200 | placeholder, plant-specific |
 | Average rework cost per defect | $420 | placeholder, plant-specific |
 | Hidden-station disturbances per line per year | 60 | roughly one per week |
-| Earlier reaction per event | 25 min | **PROTOTYPE RESULT** (see below) |
+| Earlier reaction per event | 25 min | placeholder — lead-time testing was inconclusive (see below) |
 | Recovery factor | 55% | finding a constraint sooner shortens it, it does not remove it |
 | Line nominal output | 50 veh/h | **PROTOTYPE RESULT** from the simulated line |
 | Fully-installed station retrofit | $18,000 | placeholder |
@@ -114,9 +114,18 @@ So the honest statement is conditional:
 
 We would rather state that than present a single impressive number.
 
-The 25-minute figure is a **PROTOTYPE RESULT** measured against a specific
-reference: the moment the line's rolling output falls 10% below its own normal
-rate and stays there. It is not a claim about any real plant's reaction time.
+The 25-minute figure is an **ILLUSTRATIVE ASSUMPTION**, not a measured result —
+we tried to measure it and are saying plainly that we couldn't. The early-warning
+lead-time experiment is real (`docs/RESULTS.md`, `results/tables/early_warning_summary.csv`),
+but the sample of faults that ever produced a visible board-level shortfall was
+too small (single digits) to responsibly quote a reliable figure, so `docs/RESULTS.md`
+does not, and neither should this document. Note, too, that where the metric
+*could* be computed, it trended the wrong way: this prototype's own measured
+mean and median lead time were both negative — detection arrived after the
+reference point, not before it — which is exactly why 25 minutes is presented
+here as a planning assumption for a future deployment, not a claim about the
+current system. Replace it with your own estimate in the dashboard's Leadership
+view.
 
 ---
 
