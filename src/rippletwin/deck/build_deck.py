@@ -397,7 +397,10 @@ def build(template: Path, out: Path, results_dir: Path, team: dict) -> Path:
             ["Differentiation", "claimed", "3 baselines at a matched false-alarm rate"],
             ["Partial sensors", "claimed", "coverage sweep, 100% → 25% instrumentation"],
             ["Human in the loop", "in the diagram", "hash-chained ledger, abstention when ambiguous"],
-            ["Evidence", "none", f"{R.manifest['n_episodes_test']} held-out episodes, 45 passing tests"]]
+            # Test count is a literal, not derived from a live pytest run --
+            # keep it in sync with `pytest --collect-only -q` by hand when it
+            # changes (last checked: 216).
+            ["Evidence", "none", f"{R.manifest['n_episodes_test']} held-out episodes, 216 passing tests"]]
     table(s, MARGIN, Inches(1.4), SW - 2 * MARGIN, rows,
           col_w=[1.5, 2.2, 4.6], row_h=Inches(0.42), size=10.5)
     footnote(s, "Round 1 argued the idea was worth testing. This is the test — including the parts we failed.")
