@@ -316,7 +316,7 @@ Full detail: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 ## Quickstart
 
 ```bash
-git clone <this-repo> && cd RippleTwin
+git clone https://github.com/mouryesh/AIC.git && cd AIC/RippleTwin
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -784,7 +784,7 @@ results/                      tables and figures, all generated
 | [docs/REFERENCES.md](docs/REFERENCES.md) | what is prior art, what is ours, and how to check |
 | [docs/RESULTS.md](docs/RESULTS.md) | every flagship table, with metric definitions |
 | [docs/BUSINESS_CASE.md](docs/BUSINESS_CASE.md) | value drivers, ROI arithmetic, sensor economics, risks |
-| [docs/JUDGE_QA.md](docs/JUDGE_QA.md) | 33 hard questions, answered |
+| [docs/JUDGE_QA.md](docs/JUDGE_QA.md) | 46 hard questions, answered |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | the 3-minute guided-demo narration, matching the dashboard's guided-demo mode |
 | [docs/DEMO_VIDEO.md](docs/DEMO_VIDEO.md) | storyboard and narration for the prototype video |
 | [docs/SUBMISSION_CHECKLIST.md](docs/SUBMISSION_CHECKLIST.md) | Round 2 deliverables mapped to the brief |

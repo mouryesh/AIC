@@ -211,7 +211,7 @@ Hold on the line that names the hidden station.
 ```
 RippleTwin — see the bottleneck before it arrives,
 even at the stations you can't instrument.
-github.com/<user>/RippleTwin
+github.com/mouryesh/AIC
 Simulated prototype results on synthetic data.
 ```
 

@@ -86,11 +86,14 @@ Every element the brief names for the proposal is covered:
 
 ## Manual steps remaining
 
-1. **Create and push the GitHub repository.** The repo is committed locally.
-   Commands are in the handover notes; we have no GitHub credentials in this
-   environment and did not attempt to use any.
-2. **Record the demo video** (2–3 min) following `docs/DEMO_VIDEO.md`, and add
-   the link to the README.
-3. **Fill in team details** on deck slide 2 (names, college, stream, graduation
-   year) — the template requires them and we left them for the team to enter.
-4. **Confirm the submission channel and deadline** from the competition portal.
+1. **Record the demo video** following `docs/DEMO_VIDEO.md` (~4:25, a 2:50
+   fallback cut is also preserved in that doc), and add the link to the
+   README's `Video:` line, which currently points to the storyboard itself.
+2. **Fill in team details** on deck slide 2 (names, college, stream, graduation
+   year, photos) — the template marks them mandatory and we can't invent them.
+3. **Confirm the submission channel and deadline** from the competition portal.
+
+Done, no longer pending: the GitHub repository is public at
+[github.com/mouryesh/AIC](https://github.com/mouryesh/AIC) on `main`, and the
+dashboard is live at [aic1happy.streamlit.app](https://aic1happy.streamlit.app/),
+both linked from the README.
