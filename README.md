@@ -9,7 +9,7 @@ is incomplete, sensors fail mid-shift, or the line isn't a straight chain.
 
 Accenture Innovation Challenge 2026 · Round 2 · Track 4 — **DigitalTwin.ai**
 
-**▶ Live prototype:** _(deploy link — see [Deploying the dashboard](#deploying-the-dashboard))_ ·
+**▶ Live prototype:** [aic1happy.streamlit.app](https://aic1happy.streamlit.app/) ·
 **Demo:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) ·
 **Video:** [docs/DEMO_VIDEO.md](docs/DEMO_VIDEO.md) ·
 **Results:** [docs/RESULTS.md](docs/RESULTS.md) ·
