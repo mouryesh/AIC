@@ -102,6 +102,68 @@ DEMO_STEP_CAPTION = {
 st.set_page_config(page_title="RippleTwin", layout="wide",
                    initial_sidebar_state="expanded")
 
+# Visual polish only -- no number, no computation, no layout logic below this
+# block is affected. Distinct brand blue (#4C8DFF) is deliberately NOT one of
+# the risk-scale colours (green/amber/red) already used in the charts, so the
+# "this is the product" colour never gets confused with "this is a warning."
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 1400px;
+    }
+
+    /* Metric cards: subtle card treatment instead of bare numbers on background */
+    div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        padding: 0.9rem 1rem 0.7rem 1rem;
+    }
+    div[data-testid="stMetricLabel"] {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.65;
+    }
+    div[data-testid="stMetricValue"] {
+        font-weight: 700;
+    }
+
+    /* Sidebar: tighten and give the nav a touch more breathing room */
+    section[data-testid="stSidebar"] .block-container {
+        padding-top: 1.25rem;
+    }
+    section[data-testid="stSidebar"] h1 {
+        font-size: 1.35rem;
+        margin-bottom: 0.1rem;
+    }
+
+    /* Badges (e.g. the "DEMONSTRATION" label) get a touch more presence */
+    span[data-testid="stBadge"] {
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        border-radius: 6px;
+    }
+
+    /* Headings: slightly tighter top margin so pages don't open with a gap */
+    h1, h2, h3 { letter-spacing: -0.01em; }
+
+    hr { opacity: 0.15; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 # ----------------------------------------------------------------- data layer
 
